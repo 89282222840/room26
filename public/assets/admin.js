@@ -7,7 +7,7 @@ function show(message,error=false,anchor=document.activeElement){
  const tip=document.createElement('div');tip.className='feedback-tip'+(error?' feedback-error':'');tip.textContent=message;tip.setAttribute('role',error?'alert':'status');
  const modal=anchor.closest('dialog[open]'),parent=modal||document.body;parent.append(tip);
  function position(){
-  const box=anchor.getBoundingClientRect(),size=tip.getBoundingClientRect();
+  const box=anchor.getBoundingClientRect();if(box.bottom<=0||box.top>=innerHeight||box.right<=0||box.left>=innerWidth){tip.hidden=true;return;}tip.hidden=false;const size=tip.getBoundingClientRect();
   const left=Math.max(12,Math.min(innerWidth-size.width-12,box.left+(box.width-size.width)/2));
   let top=box.top-size.height-8;if(top<12)top=box.bottom+8;top=Math.max(12,Math.min(innerHeight-size.height-12,top));
   const origin=modal?modal.getBoundingClientRect():{left:-scrollX,top:-scrollY};
@@ -39,16 +39,17 @@ async function previews(file,type){
  }finally{view?.dispose();stage?.remove();URL.revokeObjectURL(url);}
 }
 let busy=false;
+function uploadBusy(value){document.querySelectorAll('form.upload button,form.upload input[type=file]').forEach(control=>control.disabled=value);}
 window.addEventListener('beforeunload',event=>{if(busy){event.preventDefault();event.returnValue='';}});
 document.querySelectorAll('form.upload').forEach(form=>form.onsubmit=async event=>{
- event.preventDefault();if(busy)return;busy=true;document.querySelectorAll('form.upload button').forEach(b=>b.disabled=true);
+ event.preventDefault();if(busy)return;busy=true;uploadBusy(true);
  const files=[...form.querySelector('input[type=file]').files],type=form.dataset.type,status=form.querySelector('.upload-status'),bar=form.querySelector('progress');bar.classList.remove('hidden');bar.value=0;
  let done=0;
  try{for(const file of files){status.textContent=`${done+1} / ${files.length}: ${file.name}\n${type==='doc'?'Загрузка…':'Создание превью…'}`;
   const body=new FormData();body.set('type',type);body.set('file',file);
   if(type!=='doc'){const p=await previews(file,type);body.set('thumb',p.thumb,'thumb.jpg');body.set('og',p.og,'og.jpg');}
   status.textContent=`${done+1} / ${files.length}: ${file.name}\nЗагрузка на сервер…`;await api('upload',body);done++;bar.value=done/files.length*100;
- }busy=false;location.reload();}catch(e){busy=false;const message=`Загружено: ${done} из ${files.length}. ${e.message}`+(done?' Обновите страницу для просмотра загруженных файлов.':'');status.textContent='';bar.classList.add('hidden');document.querySelectorAll('form.upload button').forEach(b=>b.disabled=false);show(message,true,form.querySelector('button'));}
+ }busy=false;location.reload();}catch(e){busy=false;const message=`Загружено: ${done} из ${files.length}. ${e.message}`+(done?' Обновите страницу для просмотра загруженных файлов.':'');status.textContent='';bar.classList.add('hidden');uploadBusy(false);show(message,true,form.querySelector('button'));}
 });
 async function copy(value,button){
  try{
@@ -79,10 +80,10 @@ if(renameDialog){
   try{
    const result=await api('rename',{type:target.type,item:target.id,name:field.value});config.project=result.project;
    const item=result.project.items[target.type].find(item=>item.id===target.id),row=target.button.closest('.object-row');
-   row.querySelector('h3').textContent=item.name;target.button.dataset.filename=item.filename;
+   row.querySelector('h3 a').textContent=item.filename;target.button.dataset.filename=item.filename;row.querySelector('.drag-handle').setAttribute('aria-label','Переместить '+item.name);row.querySelector('.object-preview')?.setAttribute('aria-label','Просмотр '+item.filename);
    if(target.type==='doc'){
     const path='/pro/'+config.project.id+'/doc/'+encodeURIComponent(item.public_filename),copy=row.querySelector('[data-copy]');
-    row.querySelector('a').setAttribute('href',path);copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
+    row.querySelectorAll('[data-item-link]').forEach(link=>link.setAttribute('href',path));copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
    }
    renameDialog.close();target.button.focus({preventScroll:true});show('Файл переименован.',false,target.button);
   }catch(e){show(e.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
@@ -122,6 +123,8 @@ document.addEventListener('drop',event=>{if(isFileDrag(event)){event.preventDefa
 window.addEventListener('dragend',clearDropHighlights);
 document.querySelectorAll('form.upload').forEach(form=>{
  const button=form.querySelector('button'),input=form.querySelector('input[type=file]');
+ button.onclick=()=>{if(!busy){input.value='';input.click();}};
+ input.addEventListener('change',()=>{if(!input.files.length)return;if(busy){show('Дождитесь завершения загрузки.',false,button);return;}form.requestSubmit();});
  const enter=event=>{if(!isFileDrag(event))return;event.preventDefault();event.dataTransfer.dropEffect=busy?'none':'copy';if(!busy)form.classList.add('is-dragover');};
  form.addEventListener('dragenter',enter);form.addEventListener('dragover',enter);
  form.addEventListener('dragleave',event=>{if(!(event.relatedTarget instanceof Node)||!form.contains(event.relatedTarget))form.classList.remove('is-dragover');});
@@ -130,7 +133,7 @@ document.querySelectorAll('form.upload').forEach(form=>{
   if(busy){show('Дождитесь завершения загрузки.',false,button);return;}
   const files=Array.from(event.dataTransfer.files);if(!files.length)return;
   const selection=new DataTransfer();for(const file of files)selection.items.add(file);input.files=selection.files;
-  input.dispatchEvent(new Event('change',{bubbles:true}));form.requestSubmit(button);
+  input.dispatchEvent(new Event('change',{bubbles:true}));
  });
 });
 
