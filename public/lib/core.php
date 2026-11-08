@@ -45,7 +45,7 @@ function text_field(string $key, int $max = 500): string {
     if (!is_string($value) || strlen($value) > $max * 4 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $value)) fail('Некорректное поле: ' . $key);
     return trim($value);
 }
-function item_url(array $p, string $type, array $item): string { return '/pro/' . $p['id'] . '/' . $type . '/' . ($type === 'doc' ? $item['id'] . '/download' : '?item=' . $item['id']); }
+function item_url(array $p, string $type, array $item): string { return $type === 'doc' ? '/download.php?' . http_build_query(['p'=>$p['id'],'item'=>$item['id']], '', '&', PHP_QUERY_RFC3986) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
 function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind], '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
