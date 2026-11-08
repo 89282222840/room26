@@ -46,7 +46,7 @@ function text_field(string $key, int $max = 500): string {
     return trim($value);
 }
 function item_url(array $p, string $type, array $item): string { return '/pro/' . $p['id'] . '/' . $type . '/' . ($type === 'doc' ? $item['id'] . '/download' : '?item=' . $item['id']); }
-function asset_url(array $p, string $type, array $item, string $kind): string { return '/pro/' . $p['id'] . '/' . $type . '/' . $item['id'] . ($kind === 'source' ? ($type === '3d' ? '.glb' : '.' . $item['extension']) : '-' . $kind . '.jpg'); }
+function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind], '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
     fail('Объект не найден.', 404);
