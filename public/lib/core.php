@@ -73,6 +73,7 @@ function public_headers(): void {
     header('Referrer-Policy: same-origin');
     header("Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 }
+function css_url(): string { return '/assets/site.css?v=' . substr(hash_file('sha256', __DIR__ . '/../assets/site.css'), 0, 12); }
 function head_tags(string $title, string $description, string $image, string $path): void {
     $description = $description !== '' ? $description : 'Панорамы 360°, 3D-модели и документы проекта.';
     echo '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
@@ -80,6 +81,6 @@ function head_tags(string $title, string $description, string $image, string $pa
     foreach (['og:type'=>'website', 'og:locale'=>'ru_RU', 'og:site_name'=>'ROOM26', 'og:title'=>$title, 'og:description'=>$description, 'og:url'=>SITE_URL.$path, 'og:image'=>SITE_URL.$image, 'og:image:secure_url'=>SITE_URL.$image, 'og:image:type'=>'image/jpeg', 'og:image:width'=>'1200', 'og:image:height'=>'630', 'og:image:alt'=>$title, 'twitter:card'=>'summary_large_image', 'twitter:title'=>$title, 'twitter:description'=>$description, 'twitter:image'=>SITE_URL.$image] as $name=>$value) {
         echo '<meta ' . (strpos($name, 'og:') === 0 ? 'property' : 'name') . '="' . e($name) . '" content="' . e($value) . '">';
     }
-    echo '<link rel="canonical" href="' . e(SITE_URL.$path) . '"><link rel="stylesheet" href="/assets/site.css">';
+    echo '<link rel="canonical" href="' . e(SITE_URL.$path) . '"><link rel="stylesheet" href="' . e(css_url()) . '">';
 }
 function json_script(string $id, $data): void { echo '<script type="application/json" id="'.e($id).'">'.json_encode($data, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).'</script>'; }
