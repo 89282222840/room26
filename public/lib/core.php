@@ -52,18 +52,16 @@ function find_item(array $p, string $type, string $id): array {
     fail('Объект не найден.', 404);
 }
 function start_item(array $p, string $type): ?array {
-    $items = $p['items'][$type] ?? [];
-    foreach ($items as $item) if ($item['id'] === ($p['start'][$type] ?? '')) return $item;
-    return $items[0] ?? null;
+    return $p['items'][$type][0] ?? null;
 }
 function project_image(array $p): string {
-    $cover = $p['cover'] ?? '';
-    foreach (['360', '3d'] as $type) foreach ($p['items'][$type] as $item) {
-        if ($cover === $type . '/' . $item['id']) return asset_url($p, $type, $item, 'og');
+    foreach (['360', '3d'] as $type) {
+        $item = start_item($p, $type);
+        if ($item) return asset_url($p, $type, $item, 'og');
     }
-    foreach (['360', '3d'] as $type) { $item = start_item($p, $type); if ($item) return asset_url($p, $type, $item, 'og'); }
     return '/assets/project-cover.jpg';
 }
+
 function size_label(int $bytes): string {
     foreach (['Б', 'КБ', 'МБ', 'ГБ'] as $unit) { if ($bytes < 1024 || $unit === 'ГБ') return round($bytes, $unit === 'Б' ? 0 : 1) . ' ' . $unit; $bytes /= 1024; }
     return '';

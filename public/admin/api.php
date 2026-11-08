@@ -39,7 +39,7 @@ try {
         if (!mkdir($dir, 0755)) fail('Не удалось создать проект.', 500);
         chmod($dir, 0755);
         foreach (['360','3d','doc'] as $type) { mkdir($dir . '/' . $type, 0755); chmod($dir . '/' . $type, 0755); }
-        $p = ['id'=>$id, 'name'=>$name, 'description'=>'', 'created'=>date(DATE_ATOM), 'cover'=>'', 'start'=>['360'=>'','3d'=>''], 'items'=>['360'=>[], '3d'=>[], 'doc'=>[]]];
+        $p = ['id'=>$id, 'name'=>$name, 'description'=>'', 'created'=>date(DATE_ATOM), 'items'=>['360'=>[], '3d'=>[], 'doc'=>[]]];
         save_project($p);
     } else {
         $p = project(text_field('project', 6));
@@ -50,9 +50,6 @@ try {
         } elseif ($action === 'save') {
             $name = text_field('name', 200); if ($name === '') fail('Введите название проекта.');
             $p['name'] = $name; $p['description'] = text_field('description', 2000);
-            $p['cover'] = text_field('cover', 20);
-            if ($p['cover'] !== '') { $parts = explode('/', $p['cover']); if (count($parts)!==2 || !in_array($parts[0], ['360','3d'],true)) fail('Неверная обложка.'); find_item($p,$parts[0],$parts[1]); }
-            foreach (['360','3d'] as $type) { $id = text_field('start_' . $type, 6); if ($id !== '') find_item($p,$type,$id); $p['start'][$type] = $id; }
             save_project($p);
         } elseif ($action === 'upload') {
             $type = text_field('type', 3); if (!in_array($type, ['360','3d','doc'],true)) fail('Неверный раздел.');
@@ -84,7 +81,6 @@ try {
                 $name = $type === 'doc' ? $filename : pathinfo($filename, PATHINFO_FILENAME);
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 $p['items'][$type][] = $item;
-                if ($type !== 'doc' && $p['start'][$type] === '') $p['start'][$type] = $id;
                 save_project($p);
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path); throw $error; }
         } elseif ($action === 'reorder') {
@@ -101,8 +97,6 @@ try {
             $type=text_field('type',3);if(!in_array($type,['360','3d','doc'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);
             $p['items'][$type]=array_values(array_filter($p['items'][$type],function($item)use($id){return $item['id']!==$id;}));
-            if(($p['start'][$type]??'')===$id)$p['start'][$type]=$p['items'][$type][0]['id']??'';
-            if($p['cover']===$type.'/'.$id)$p['cover']='';
             save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[]) as $path)unlink($path);
         } else fail('Неизвестное действие.');
     }
