@@ -2,7 +2,13 @@
 declare(strict_types=1);
 
 // Shared PHP session and authentication.
-$secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+// Shared hosting can terminate TLS before the PHP worker.
+$secure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || strtolower(trim(explode(',', $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')[0])) === 'https'
+    || strtolower($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '') === 'on'
+    || in_array(strtolower($_SERVER['HTTP_X_HTTPS'] ?? ''), ['1', 'on', 'https'], true)
+    || strtolower($_SERVER['HTTP_X_SCHEME'] ?? '') === 'https'
+    || (string)($_SERVER['SERVER_PORT'] ?? '') === '443';
 $local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
 if (!$secure && !$local) {
     header('Location: https://360.room26.ru/admin/', true, 303);
