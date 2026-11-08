@@ -45,7 +45,46 @@ function text_field(string $key, int $max = 500): string {
     if (!is_string($value) || strlen($value) > $max * 4 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $value)) fail('Некорректное поле: ' . $key);
     return trim($value);
 }
-function item_url(array $p, string $type, array $item): string { return $type === 'doc' ? '/download.php?' . http_build_query(['p'=>$p['id'],'item'=>$item['id']], '', '&', PHP_QUERY_RFC3986) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
+function document_base_name(string $name): string {
+    // Keep dots and file extensions, but avoid URL path segments such as . and ...
+    $name = basename(str_replace(chr(92), '/', $name));
+    return $name === '' || $name[0] === '.' ? 'file' . $name : $name;
+}
+function document_suffix(string $name, string $id): string {
+    $extension = pathinfo($name, PATHINFO_EXTENSION);
+    return ($extension === '' ? $name : substr($name, 0, -strlen($extension)-1)) . '-' . $id . ($extension === '' ? '' : '.' . $extension);
+}
+function document_filename(array $p, array $item): string {
+    if (!empty($item['public_filename'])) return $item['public_filename'];
+    $name = document_base_name($item['filename']);
+    // Legacy uploads need no migration; duplicate names get stable ID suffixes.
+    foreach ($p['items']['doc'] as $other) {
+        if ($other['id'] === $item['id']) continue;
+        if (!empty($other['public_filename'])) {
+            if ($other['public_filename'] === $name) return document_suffix($name, $item['id']);
+        } elseif (document_base_name($other['filename']) === $name
+            && strcmp(($other['uploaded'] ?? '') . $other['id'], ($item['uploaded'] ?? '') . $item['id']) < 0) {
+            return document_suffix($name, $item['id']);
+        }
+    }
+    return $name;
+}
+function new_document_filename(array $p, array $item): string {
+    $name = document_base_name($item['filename']);
+    $used = array_map(function($other) use ($p) { return document_filename($p, $other); }, $p['items']['doc']);
+    if (in_array($name, $used, true)) $name = document_suffix($name, $item['id']);
+    $candidate = $name; $n = 2;
+    while (in_array($candidate, $used, true)) $candidate = document_suffix($name, (string)$n++);
+    return $candidate;
+}
+function document_by_filename(array $p, string $filename): array {
+    if ($filename === '' || strpos($filename, '/') !== false || strpos($filename, chr(92)) !== false) fail('Файл не найден.', 404);
+    foreach ($p['items']['doc'] as $item) if (document_filename($p, $item) === $filename) return $item;
+    // Keep an old collision-suffixed link valid after another legacy upload is removed.
+    foreach ($p['items']['doc'] as $item) if (empty($item['public_filename']) && document_suffix(document_base_name($item['filename']), $item['id']) === $filename) return $item;
+    fail('Файл не найден.', 404);
+}
+function item_url(array $p, string $type, array $item): string { return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
 function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind], '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;

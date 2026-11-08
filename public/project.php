@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/lib/core.php';
+require __DIR__ . '/lib/documents.php';
 public_headers();
 try {
     $path = parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH);
@@ -8,8 +9,7 @@ try {
     $p=project($matches[1]);$type=$matches[2]??'';$file=$matches[3]??'';
     if ($file !== '') {
         if($type==='doc' && valid_id($file) && ($matches[4]??'')==='download') {
-            $item=find_item($p,$type,$file);$source=project_path($p['id']).'/doc/'.$item['id'].'.bin';
-            $disposition='attachment; filename="download.bin"; filename*=UTF-8\'\''.rawurlencode($item['filename']);$mime='application/octet-stream';
+            serve_document($p, find_item($p, $type, $file));
         } elseif(in_array($type,['360','3d'],true) && preg_match('/^([a-f0-9]{6})(?:(-thumb|-og)\.jpg|\.(jpg|png|webp|glb))$/D',$file,$asset)) {
             $item=find_item($p,$type,$asset[1]);$suffix=$asset[2]??'';
             $expected=$item['id'].($suffix!==''?$suffix.'.jpg':'.'.$item['extension']);
@@ -49,10 +49,10 @@ try {
 <noscript><div class="viewer-status">Для просмотра включите JavaScript в браузере.</div></noscript>
 <?php else: ?>
 <main class="shell"><header class="topbar"><span class="brand">ROOM26 / 360</span><?php if($type==='doc'): ?><a href="<?=e($base)?>">← Проект</a><?php endif ?></header><h1><?=e($type==='doc'?'Документы':$p['name'])?></h1>
-<?php if($type==='doc'): ?><p class="muted"><?=e($p['name'])?></p><ul class="file-list"><?php foreach($p['items']['doc'] as $item): ?><li class="file-row"><div><div class="file-name"><?=e($item['name'])?></div><div class="muted small"><?=e($item['filename'])?> · <?=e(size_label($item['size']))?> · Загружен <?=e(date('d.m.Y H:i',strtotime($item['uploaded'])))?> МСК</div></div><a class="button" href="<?=e(item_url($p,'doc',$item))?>">Скачать</a></li><?php endforeach ?></ul><?php if(!$p['items']['doc']): ?><p class="empty">Пока нет документов.</p><?php endif ?>
+<?php if($type==='doc'): ?><p class="muted"><?=e($p['name'])?></p><ul class="file-list"><?php foreach($p['items']['doc'] as $item): ?><li class="file-row"><div><a class="file-name" href="<?=e(item_url($p,'doc',$item))?>"><?=e($item['filename'])?></a><div class="muted small"><?=e(size_label($item['size']))?> · Загружен <?=e(date('d.m.Y H:i',strtotime($item['uploaded'])))?> МСК</div></div></li><?php endforeach ?></ul><?php if(!$p['items']['doc']): ?><p class="empty">Пока нет документов.</p><?php endif ?>
 <?php else: ?>
 <?php if($p['description']!==''): ?><p class="project-description muted"><?=e($p['description'])?></p><?php endif ?><div class="grid">
 <?php foreach(['360'=>'Виртуальный тур','3d'=>'3D-модели'] as $kind=>$label):$kind=(string)$kind;$first=start_item($p,$kind);if(!$first)continue; ?><a class="card entry" href="<?=e($base.$kind.'/')?>"><img width="400" height="200" src="<?=e(asset_url($p,$kind,$first,'thumb'))?>" alt=""><h2><?=e($label)?></h2><span class="muted"><?=count($p['items'][$kind])?> объектов</span><span class="arrow">Открыть →</span></a><?php endforeach ?>
-<?php if($p['items']['doc']): ?><a class="card entry" href="<?=e($base)?>doc/"><h2>Документы</h2><span class="muted"><?=count($p['items']['doc'])?> файлов для скачивания</span><span class="arrow">Открыть →</span></a><?php endif ?></div>
+<?php if($p['items']['doc']): ?><a class="card entry" href="<?=e($base)?>doc/"><h2>Документы</h2><span class="muted"><?=count($p['items']['doc'])?> файлов</span><span class="arrow">Открыть →</span></a><?php endif ?></div>
 <?php if(!$p['items']['360']&&!$p['items']['3d']&&!$p['items']['doc']): ?><p class="empty">Материалы проекта скоро появятся.</p><?php endif ?>
 <?php endif ?></main><?php endif ?></body></html>

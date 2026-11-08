@@ -8,9 +8,9 @@ PHP 7.3+ application for project pages, Pannellum panoramas, three.js GLB models
 - `/pro/{project}/`: public project page.
 - `/pro/{project}/360/`: starting panorama; `?item={id}` opens a particular panorama.
 - `/pro/{project}/3d/`: starting model; `?item={id}` opens a particular model.
-- `/pro/{project}/doc/`: downloadable documents with upload date in Moscow time.
+- `/pro/{project}/doc/`: document links with upload date in Moscow time.
 
-Panoramas and GLB files are stored directly in each project's `360/` and `3d/` directories, alongside generated JPEG thumbnails (400×200) and OG covers (1200×630). Filenames on disk use generated IDs; original names are preserved in project metadata. Document payloads use `.bin` storage and are served exclusively as attachments through PHP, preserving their original download filenames.
+Panoramas and GLB files are stored directly in each project's `360/` and `3d/` directories, alongside generated JPEG thumbnails (400×200) and OG covers (1200×630). Filenames on disk use generated IDs; original names are preserved in project metadata. Document payloads use `.bin` storage and are served through PHP at `/pro/{project}/doc/{filename}` with their actual content types and without forced attachment headers. Duplicate filenames receive a suffix. The browser decides whether to view or save a document.
 
 ## Hosting
 

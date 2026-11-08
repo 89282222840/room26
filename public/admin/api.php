@@ -57,7 +57,7 @@ try {
         } elseif ($action === 'upload') {
             $type = text_field('type', 3); if (!in_array($type, ['360','3d','doc'],true)) fail('Неверный раздел.');
             $file = uploaded('file');
-            $filename = basename(str_replace('\\', '/', $file['name']));
+            $filename = basename(str_replace(chr(92), '/', $file['name']));
             $filename = preg_replace('/[\x00-\x1f\x7f]/', '', $filename);
             if ($filename === '' || strlen($filename) > 700) fail('Недопустимое имя файла.');
             if ($type === '360') {
@@ -83,6 +83,7 @@ try {
                 if (!chmod($prefix.'.'.$extension, $type === 'doc' ? 0600 : 0644)) fail('Не удалось установить права файла.', 500);
                 $name = $type === 'doc' ? $filename : pathinfo($filename, PATHINFO_FILENAME);
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
+                if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
                 $p['items'][$type][] = $item;
                 save_project($p);
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path); throw $error; }
