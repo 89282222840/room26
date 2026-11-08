@@ -14,6 +14,7 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 header('X-Robots-Tag: noindex, nofollow');
+ini_set('session.gc_maxlifetime', '86400');
 ini_set('session.use_strict_mode', '1');
 ini_set('session.use_only_cookies', '1');
 session_name('room26_admin');
@@ -25,7 +26,7 @@ if (!session_start()) {
     http_response_code(503);
     exit('Вход временно недоступен. Попробуйте позже.');
 }
-if (isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > 1800) {
+if (isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] >= 86400) {
     $_SESSION = [];
     session_regenerate_id(true);
 }
