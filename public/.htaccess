@@ -1,0 +1,9 @@
+Options -Indexes
+DirectoryIndex index.php index.html
+RewriteEngine On
+RewriteRule ^(?:lib|\.git)(?:/|$) - [F,L]
+RewriteRule (^|/)\. - [F,L]
+RewriteRule ^pro(?:/.*)?$ project.php [END,QSA]
+<FilesMatch "\.(?:ini|json|lock|tmp|bin)$">
+  Require all denied
+</FilesMatch>

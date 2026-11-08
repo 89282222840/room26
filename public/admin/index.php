@@ -1,149 +1,48 @@
 <?php
 declare(strict_types=1);
-
-// PHP 7.3+. No database or client-side scripts required.
-$secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-$local = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
-if (!$secure && !$local) {
-    header('Location: https://360.room26.ru/admin/', true, 303);
-    exit;
+require __DIR__ . '/../lib/core.php';
+require __DIR__ . '/../lib/auth.php';
+public_headers();
+$selected = null;
+if ($authenticated && isset($_GET['p']) && is_string($_GET['p'])) {
+    try { $selected = project($_GET['p']); } catch (Throwable $ex) { http_response_code(404); $error = 'Проект не найден.'; }
 }
-header('Cache-Control: no-store, private');
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
-header('X-Robots-Tag: noindex, nofollow');
-ini_set('session.gc_maxlifetime', '86400');
-ini_set('session.use_strict_mode', '1');
-ini_set('session.use_only_cookies', '1');
-session_name('room26_admin');
-session_set_cookie_params([
-    'lifetime' => 0, 'path' => '/admin/', 'secure' => $secure,
-    'httponly' => true, 'samesite' => 'Strict',
-]);
-if (!session_start()) {
-    http_response_code(503);
-    exit('Вход временно недоступен. Попробуйте позже.');
-}
-if (isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] >= 86400) {
-    $_SESSION = [];
-    session_regenerate_id(true);
-}
-if (empty($_SESSION['csrf'])) {
-    $_SESSION['csrf'] = bin2hex(random_bytes(32));
-}
-$error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = $_POST['csrf'] ?? '';
-    if (!is_string($token) || !hash_equals($_SESSION['csrf'], $token)) {
-        http_response_code(403);
-        $error = 'Обновите страницу и попробуйте ещё раз.';
-    } elseif (($_POST['action'] ?? '') === 'logout') {
-        $_SESSION = [];
-        setcookie(session_name(), '', [
-            'expires' => time() - 3600, 'path' => '/admin/',
-            'secure' => $secure, 'httponly' => true, 'samesite' => 'Strict',
-        ]);
-        session_destroy();
-        header('Location: /admin/', true, 303);
-        exit;
-    } elseif (empty($_SESSION['authenticated'])) {
-        // Shared per-IP counter survives cookie resets. Store outside the web root.
-        $key = hash('sha256', __FILE__ . '|' . ($_SERVER['REMOTE_ADDR'] ?? ''));
-        $counter = @fopen(sys_get_temp_dir() . '/room26-login-' . $key, 'c+');
-        if (!$counter || !flock($counter, LOCK_EX)) {
-            http_response_code(503);
-            $error = 'Вход временно недоступен. Попробуйте позже.';
-        } else {
-            $state = json_decode(stream_get_contents($counter), true);
-            if (!is_array($state) || time() - ($state['start'] ?? 0) >= 900) {
-                $state = ['start' => time(), 'attempts' => 0];
-            }
-            if ($state['attempts'] >= 10) {
-                http_response_code(429);
-                header('Retry-After: ' . max(1, 900 - (time() - $state['start'])));
-                $error = 'Слишком много попыток. Попробуйте через 15 минут.';
-            } else {
-                $username = $_POST['username'] ?? '';
-                $password = $_POST['password'] ?? '';
-                $valid = is_string($password) && strlen($password) <= 1024
-                    && password_verify($password, '$2y$12$tbHC2pZM9eU1HW/O0mCt6uZYXlYgJSHqVmDo5AFcyQngdhr5J0MUC');
-                if (is_string($username) && hash_equals('Irina', $username) && $valid) {
-                    session_regenerate_id(true);
-                    $_SESSION = ['authenticated' => true, 'last_seen' => time(),
-                        'csrf' => bin2hex(random_bytes(32))];
-                    $state = ['start' => time(), 'attempts' => 0];
-                } else {
-                    $state['attempts']++;
-                    $error = 'Неверный логин или пароль.';
-                }
-            }
-            rewind($counter);
-            ftruncate($counter, 0);
-            fwrite($counter, json_encode($state));
-            fflush($counter);
-            flock($counter, LOCK_UN);
-            fclose($counter);
-            if (!empty($_SESSION['authenticated'])) {
-                header('Location: /admin/', true, 303);
-                exit;
-            }
-        }
-    }
-}
-$authenticated = !empty($_SESSION['authenticated']);
-if ($authenticated) {
-    $_SESSION['last_seen'] = time();
-}
-function escape(string $value): string {
-    return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-}
+$labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'Документы'];
 ?>
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= $authenticated ? 'Админка' : 'Вход' ?> — ROOM26</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #101820; color: #f4f6f8; font-family: system-ui, sans-serif; }
-    main { width: 100%; max-width: 400px; }
-    .brand { color: #85dbc5; font-size: 13px; letter-spacing: .18em; }
-    h1 { font-size: 32px; margin: 16px 0 32px; }
-    label { display: block; margin: 20px 0 8px; }
-    input { width: 100%; padding: 14px; background: #1b2833; border: 1px solid #526472; border-radius: 8px; color: #fff; font: inherit; }
-    button { width: 100%; padding: 14px; border: 0; border-radius: 8px; background: #85dbc5; color: #101820; font: inherit; font-weight: 600; cursor: pointer; }
-    .login button { margin-top: 28px; }
-    input:focus-visible, button:focus-visible { outline: 3px solid #c7fff1; outline-offset: 3px; }
-    button:hover { background: #a6e8d7; }
-    .error { padding: 12px; border: 1px solid #c97b7b; border-radius: 8px; color: #ffd0d0; line-height: 1.5; }
-  </style>
-</head>
-<body>
-<main>
-<?php if ($error !== ''): ?>
-  <p class="error" role="alert"><?= escape($error) ?></p>
-<?php endif; ?>
-<?php if ($authenticated): ?>
-  <form method="post" action="/admin/">
-    <input type="hidden" name="csrf" value="<?= escape($_SESSION['csrf']) ?>">
-    <input type="hidden" name="action" value="logout">
-    <button type="submit">Выйти</button>
-  </form>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Админка — ROOM26</title><link rel="stylesheet" href="/assets/site.css"></head>
+<body class="<?= $authenticated?'':'login' ?>">
+<?php if (!$authenticated): ?>
+<main><div class="brand">ROOM26 / 360</div><h1>Вход в админку</h1>
+<?php if($error): ?><p class="error" role="alert"><?=e($error)?></p><?php endif ?>
+<form method="post" action="/admin/"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><label for="username">Логин</label><input id="username" name="username" autocomplete="username" maxlength="100" required><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required><button>Войти</button></form></main>
 <?php else: ?>
-  <div class="brand">ROOM26 / 360</div>
-  <h1>Вход в админку</h1>
-  <form class="login" method="post" action="/admin/">
-    <input type="hidden" name="csrf" value="<?= escape($_SESSION['csrf']) ?>">
-    <label for="username">Логин</label>
-    <input id="username" name="username" autocomplete="username" maxlength="100" required>
-    <label for="password">Пароль</label>
-    <input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required>
-    <button type="submit">Войти</button>
-  </form>
-<?php endif; ?>
-</main>
-</body>
-</html>
+<div class="shell"><header class="topbar"><a class="brand" href="/admin/">ROOM26 / 360</a><div class="actions"><button id="new-project">Новый проект</button><form class="inline" method="post" action="/admin/"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><input type="hidden" name="action" value="logout"><button class="secondary">Выйти</button></form></div></header>
+<div id="notice" class="notice hidden" role="status"></div>
+<?php if($error): ?><p class="error" role="alert"><?=e($error)?></p><?php endif ?>
+<?php if(!$selected): ?>
+<h1>Проекты</h1><p class="muted">Панорамы, модели и документы — в одном месте.</p><div class="grid">
+<?php foreach(projects() as $p): ?><article class="card project-card"><h2><?=e($p['name'])?></h2><div class="muted small"><?=count($p['items']['360'])?> панорам · <?=count($p['items']['3d'])?> моделей · <?=count($p['items']['doc'])?> документов</div><div class="actions"><a class="button" href="?p=<?=e($p['id'])?>">Открыть</a><a href="/pro/<?=e($p['id'])?>/" target="_blank" rel="noopener">Для клиента ↗</a></div></article><?php endforeach ?>
+</div><?php if(!projects()): ?><p class="empty">Пока нет проектов. Нажмите «Новый проект», чтобы начать.</p><?php endif ?>
+<?php else: $p=$selected; ?>
+<a href="/admin/">← Все проекты</a><h1><?=e($p['name'])?></h1><p class="project-link"><a href="/pro/<?=e($p['id'])?>/" target="_blank" rel="noopener"><?=e(SITE_URL)?>/pro/<?=e($p['id'])?>/ ↗</a> <button class="secondary" data-copy="<?=e(SITE_URL.'/pro/'.$p['id'].'/')?>">Скопировать ссылку</button></p>
+<details class="card" open><summary>Настройки проекта</summary><form id="project-settings" class="form-grid">
+<div class="wide"><label for="project-name">Название проекта</label><input id="project-name" name="name" value="<?=e($p['name'])?>" maxlength="200" required></div>
+<div class="wide"><label for="description">Описание для клиента и карточек ссылок</label><textarea id="description" name="description" maxlength="2000"><?=e($p['description'])?></textarea></div>
+<?php foreach(['360','3d'] as $type): ?><div><label for="start-<?=$type?>">Старт: <?=e($labels[$type])?></label><select id="start-<?=$type?>" name="start_<?=$type?>"><option value="">Первый в списке</option><?php foreach($p['items'][$type] as $item): ?><option value="<?=e($item['id'])?>" <?=$p['start'][$type]===$item['id']?'selected':''?>><?=e($item['name'])?></option><?php endforeach ?></select></div><?php endforeach ?>
+<div class="wide"><label for="cover">Обложка проекта в мессенджерах</label><select id="cover" name="cover"><option value="">Автоматически — стартовая панорама или модель</option><?php foreach(['360','3d'] as $type)foreach($p['items'][$type] as $item):$key=$type.'/'.$item['id']; ?><option value="<?=e($key)?>" <?=$p['cover']===$key?'selected':''?>><?=e($labels[$type].' / '.$item['name'])?></option><?php endforeach ?></select></div><div class="wide actions"><button type="submit">Сохранить настройки</button><span class="muted small">Переименование не меняет ссылки.</span><button type="button" class="danger" id="delete-project">Удалить проект</button></div>
+</form></details>
+<?php foreach($labels as $type=>$label):$type=(string)$type; ?>
+<section class="card" id="section-<?=$type?>"><div class="section-header"><h2><?=e($label)?></h2><span class="muted small"><?=count($p['items'][$type])?> объектов</span></div>
+<form class="upload" data-type="<?=$type?>"><label for="files-<?=$type?>"><?=$type==='360'?'Добавить панорамы (JPG, PNG, WebP, формат 2:1)':($type==='3d'?'Добавить модели GLB':'Добавить файлы любых форматов')?></label><input type="file" id="files-<?=$type?>" name="files" multiple required <?=$type==='360'?'accept="image/jpeg,image/png,image/webp"':($type==='3d'?'accept=".glb"':'')?>><button>Загрузить</button><p class="muted small"><?php if($type==='doc'): ?>Любые файлы будут доступны для скачивания.<?php else: ?>JPG-превью 400 × 200 и обложка ссылки создаются автоматически.<?php endif ?> Лимит одного файла на сервере: <?=e(ini_get('upload_max_filesize'))?>; запроса: <?=e(ini_get('post_max_size'))?>.</p><div class="upload-status" role="status"></div><progress class="hidden" max="100" value="0"></progress></form>
+<p class="muted small">Перетаскивайте объекты за ⋮⋮, чтобы изменить порядок.</p><div class="object-list" data-type="<?=$type?>">
+<?php foreach($p['items'][$type] as $item):$url=item_url($p,$type,$item); ?>
+<article class="object-row" data-id="<?=e($item['id'])?>"><button class="drag-handle" type="button" draggable="true" aria-label="Переместить <?=e($item['name'])?>">⋮⋮</button>
+<?php if($type!=='doc'): ?><img src="<?=e(asset_url($p,$type,$item,'thumb'))?>" width="400" height="200" alt="" loading="lazy"><?php endif ?>
+<div class="object-info"><h3><?=e($item['name'])?></h3><div class="muted small"><?=e(size_label($item['size']))?> · <?=e(date('d.m.Y H:i',strtotime($item['uploaded'])))?> МСК</div><div class="actions"><a href="<?=e($type==='doc'?$url:$url)?>" target="_blank" rel="noopener"><?=$type==='doc'?'Скачать':'Просмотр ↗'?></a><button class="secondary" data-copy="<?=e(SITE_URL.($type==='doc'?$url:$url))?>">Ссылка</button><?php if($type!=='360'): ?><button class="secondary" data-rename="<?=e($item['id'])?>" data-name="<?=e($item['name'])?>">Переименовать</button><?php endif ?><button class="secondary" data-move="up" aria-label="Выше">↑</button><button class="secondary" data-move="down" aria-label="Ниже">↓</button><button class="danger" data-delete="<?=e($item['id'])?>">Удалить</button></div></div></article>
+<?php endforeach ?></div><?php if(!$p['items'][$type]): ?><p class="empty">Пока ничего не загружено.</p><?php endif ?></section>
+<?php endforeach ?>
+<?php endif ?>
+<dialog id="new-dialog" class="dialog"><form id="create-form"><h2>Новый проект</h2><label for="new-name">Название проекта</label><input id="new-name" name="name" maxlength="200" required><div class="actions"><button type="button" class="secondary" data-close>Отмена</button><button>Создать проект</button></div></form></dialog>
+<?php json_script('admin-config',['csrf'=>$_SESSION['csrf'],'project'=>$selected]); ?>
+<script type="module" src="/assets/admin.js"></script></div>
+<?php endif ?></body></html>
