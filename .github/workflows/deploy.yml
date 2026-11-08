@@ -1,0 +1,83 @@
+name: Deploy to 1Gb
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-1gb
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install paramiko==3.5.1
+      - name: Upload public directory via SFTP
+        env:
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_HOST_FINGERPRINT: ${{ secrets.SFTP_HOST_FINGERPRINT }}
+        shell: python
+        run: |
+          import base64
+          import hashlib
+          import hmac
+          import os
+          import stat
+          from pathlib import Path, PurePosixPath
+          import paramiko
+
+          source = Path("public")
+          if not (source / "index.html").is_file():
+              raise SystemExit("public/index.html is missing; deployment stopped.")
+          for name in ("SFTP_USERNAME", "SFTP_PASSWORD", "SFTP_HOST_FINGERPRINT"):
+              if not os.environ.get(name, "").strip():
+                  raise SystemExit(f"Missing GitHub secret: {name}")
+
+          class PinnedKey(paramiko.MissingHostKeyPolicy):
+              def missing_host_key(self, client, hostname, key):
+                  actual = "SHA256:" + base64.b64encode(
+                      hashlib.sha256(key.asbytes()).digest()
+                  ).decode().rstrip("=")
+                  expected = os.environ["SFTP_HOST_FINGERPRINT"].strip()
+                  if not hmac.compare_digest(actual, expected):
+                      raise paramiko.SSHException("Server host key fingerprint mismatch")
+
+          root = PurePosixPath("/home/virtwww/w_360-room260_fd79d09d/http")
+          with paramiko.SSHClient() as client:
+              client.set_missing_host_key_policy(PinnedKey())
+              client.connect(
+                  "ftp.360-room260.1gb.ru", port=2222,
+                  username=os.environ["SFTP_USERNAME"],
+                  password=os.environ["SFTP_PASSWORD"],
+                  look_for_keys=False, allow_agent=False,
+                  timeout=30, banner_timeout=30, auth_timeout=30,
+              )
+              with client.open_sftp() as sftp:
+                  if not stat.S_ISDIR(sftp.stat(str(root)).st_mode):
+                      raise SystemExit("Remote website directory does not exist")
+                  files = sorted(source.rglob("*"))
+                  if any(path.is_symlink() for path in files):
+                      raise SystemExit("Symlinks are not allowed in public/")
+                  for path in files:
+                      target = str(root / path.relative_to(source).as_posix())
+                      if path.is_dir():
+                          try:
+                              mode = sftp.stat(target).st_mode
+                          except FileNotFoundError:
+                              sftp.mkdir(target)
+                          else:
+                              if not stat.S_ISDIR(mode):
+                                  raise SystemExit("Remote directory conflicts with a file")
+                      elif path.is_file():
+                          temporary = target + ".deploy-tmp"
+                          sftp.put(str(path), temporary)
+                          sftp.posix_rename(temporary, target)
+          print("Deployment completed.")
