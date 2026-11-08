@@ -9,7 +9,7 @@ async function api(action,data={}){
  try{result=await response.json();}catch{throw Error('Сервер отклонил запрос. Проверьте лимиты загрузки хостинга.');}
  if(!response.ok)throw Error(result.error||'Не удалось выполнить запрос.');return result;
 }
-const dialog=document.querySelector('#new-dialog');document.querySelector('#new-project').onclick=()=>dialog.showModal();document.querySelector('[data-close]').onclick=()=>dialog.close();
+const dialog=document.querySelector('#new-dialog'),newProjectButton=document.querySelector('#new-project');if(newProjectButton)newProjectButton.onclick=()=>dialog.showModal();document.querySelector('[data-close]').onclick=()=>dialog.close();
 document.querySelector('#create-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const r=await api('create',new FormData(event.target));location.href='/admin/?p='+r.project.id;}catch(e){dialog.close();show(e.message,true);button.disabled=false;}};
 document.querySelector('#project-settings')?.addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{await api('save',new FormData(event.target));show('Настройки сохранены.');document.querySelector('h1').textContent=document.querySelector('#project-name').value;}catch(e){show(e.message,true);}finally{event.submitter.disabled=false;}});
 async function jpeg(canvas,w,h){const out=document.createElement('canvas');out.width=w;out.height=h;const ctx=out.getContext('2d');ctx.fillStyle='#dce2e8';ctx.fillRect(0,0,w,h);const scale=Math.max(w/canvas.width,h/canvas.height);const width=canvas.width*scale,height=canvas.height*scale;ctx.drawImage(canvas,(w-width)/2,(h-height)/2,width,height);return new Promise((resolve,reject)=>out.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать JPG-превью.')),'image/jpeg',.9));}
@@ -52,4 +52,4 @@ document.querySelectorAll('.object-list').forEach(list=>{
 
 document.querySelector('#delete-project')?.addEventListener('click',async()=>{if(!confirm('Удалить проект целиком со всеми панорамами, моделями и документами? Восстановить их через сайт будет невозможно.'))return;try{await api('delete_project');location.href='/admin/';}catch(e){show(e.message,true);}});
 
-document.querySelector('#new-project').disabled=false;
+if(newProjectButton)newProjectButton.disabled=false;

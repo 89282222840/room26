@@ -2,3 +2,5 @@
 .object-row img,.entry img,.viewer-list img{height:auto}
 /* Keep the viewport sized when Pannellum applies its container styles. */
 #viewer.viewer{position:fixed;inset:0;width:100%;height:100%}
+
+.project-cover{display:block;width:100%;aspect-ratio:2;overflow:hidden;border-radius:10px}.project-cover img{display:block;width:100%;height:100%;object-fit:cover}.project-delete{justify-content:flex-end;margin-top:32px}
