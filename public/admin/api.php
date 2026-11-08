@@ -94,9 +94,24 @@ try {
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
         } elseif ($action === 'rename') {
-            $type = text_field('type',3); if (!in_array($type,['3d','doc'],true)) fail('Название панорамы соответствует имени файла.');
-            $id=text_field('item',6);find_item($p,$type,$id);$name=text_field('name',200);if($name==='')fail('Введите название.');
-            foreach($p['items'][$type] as &$item)if($item['id']===$id)$item['name']=$name;unset($item);save_project($p);
+            $type = text_field('type',3); if (!in_array($type,['360','3d','doc'],true)) fail('Неверный раздел.');
+            $id=text_field('item',6);$item=find_item($p,$type,$id);$name=text_field('name',200);
+            $length=preg_match_all('/./us',$name,$characters);
+            if($name==='' || $length===false || $length>200 || strpos($name,'/')!==false || strpos($name,chr(92))!==false || preg_match('/[\x00-\x1f\x7f]/',$name)) fail('Введите корректное имя файла без разделителей пути.');
+            $extension=pathinfo($item['filename'],PATHINFO_EXTENSION);
+            if($extension!=='' && strcasecmp(substr($name,-strlen($extension)-1),'.'.$extension)===0) $name=substr($name,0,-strlen($extension)-1);
+            $name=trim($name);if($name==='' || $name==='.' || $name==='..')fail('Введите имя файла.');
+            $old=$item;$item['filename']=$name.($extension!==''?'.'.$extension:'');
+            $item['name']=$type==='doc'?$item['filename']:$name;
+            if($type==='doc'){
+                $oldUrlName=document_filename($p,$old);
+                $others=$p;$others['items']['doc']=array_values(array_filter($p['items']['doc'],function($other)use($id){return $other['id']!==$id;}));
+                $item['public_filename']=new_document_filename($others,$item);
+                $aliases=array_merge($old['previous_filenames']??[],[$oldUrlName]);
+                if(empty($old['public_filename']))$aliases[]=document_suffix(document_base_name($old['filename']),$id);
+                $item['previous_filenames']=array_values(array_diff(array_unique($aliases),[$item['public_filename']]));
+            }
+            foreach($p['items'][$type] as &$stored)if($stored['id']===$id)$stored=$item;unset($stored);save_project($p);
         } elseif ($action === 'delete_item') {
             $type=text_field('type',3);if(!in_array($type,['360','3d','doc'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);

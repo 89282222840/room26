@@ -60,6 +60,7 @@ function document_filename(array $p, array $item): string {
     // Legacy uploads need no migration; duplicate names get stable ID suffixes.
     foreach ($p['items']['doc'] as $other) {
         if ($other['id'] === $item['id']) continue;
+        if (in_array($name, $other['previous_filenames'] ?? [], true)) return document_suffix($name, $item['id']);
         if (!empty($other['public_filename'])) {
             if ($other['public_filename'] === $name) return document_suffix($name, $item['id']);
         } elseif (document_base_name($other['filename']) === $name
@@ -71,7 +72,12 @@ function document_filename(array $p, array $item): string {
 }
 function new_document_filename(array $p, array $item): string {
     $name = document_base_name($item['filename']);
-    $used = array_map(function($other) use ($p) { return document_filename($p, $other); }, $p['items']['doc']);
+    $used = [];
+    foreach ($p['items']['doc'] as $other) {
+        $used[] = document_filename($p, $other);
+        foreach ($other['previous_filenames'] ?? [] as $alias) $used[] = $alias;
+        if (empty($other['public_filename'])) $used[] = document_suffix(document_base_name($other['filename']), $other['id']);
+    }
     if (in_array($name, $used, true)) $name = document_suffix($name, $item['id']);
     $candidate = $name; $n = 2;
     while (in_array($candidate, $used, true)) $candidate = document_suffix($name, (string)$n++);
@@ -80,6 +86,7 @@ function new_document_filename(array $p, array $item): string {
 function document_by_filename(array $p, string $filename): array {
     if ($filename === '' || strpos($filename, '/') !== false || strpos($filename, chr(92)) !== false) fail('Файл не найден.', 404);
     foreach ($p['items']['doc'] as $item) if (document_filename($p, $item) === $filename) return $item;
+    foreach ($p['items']['doc'] as $item) if (in_array($filename, $item['previous_filenames'] ?? [], true)) return $item;
     // Keep an old collision-suffixed link valid after another legacy upload is removed.
     foreach ($p['items']['doc'] as $item) if (empty($item['public_filename']) && document_suffix(document_base_name($item['filename']), $item['id']) === $filename) return $item;
     fail('Файл не найден.', 404);

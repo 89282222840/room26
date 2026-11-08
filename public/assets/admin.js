@@ -62,7 +62,32 @@ async function copy(value,button){
 }
 document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>copy(button.dataset.copy,button));
 document.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{if(!confirm('Удалить объект и его файл? Ссылка перестанет работать.'))return;button.disabled=true;try{await api('delete_item',{type:button.closest('[data-type]').dataset.type,item:button.dataset.delete});location.reload();}catch(e){show(e.message,true,button);button.disabled=false;}});
-document.querySelectorAll('[data-rename]').forEach(button=>button.onclick=async()=>{const name=prompt('Название:',button.dataset.name);if(name===null)return;try{await api('rename',{type:button.closest('[data-type]').dataset.type,item:button.dataset.rename,name});location.reload();}catch(e){show(e.message,true,button);}});
+const renameDialog=document.querySelector('#rename-dialog');let renameTarget=null;
+if(renameDialog){
+ const field=document.querySelector('#rename-name'),form=document.querySelector('#rename-form'),cancel=document.querySelector('#rename-cancel');
+ document.querySelectorAll('[data-rename]').forEach(button=>button.onclick=()=>{
+  const filename=button.dataset.filename,index=filename.lastIndexOf('.'),extension=index>0?filename.slice(index):'';
+  renameTarget={button,type:button.closest('[data-type]').dataset.type,id:button.dataset.rename};
+  field.value=extension?filename.slice(0,-extension.length):filename;
+  document.querySelector('#rename-extension').textContent=extension?'Расширение '+extension+' сохранится.':'';
+  renameDialog.showModal();field.select();
+ });
+ cancel.onclick=()=>renameDialog.close();
+ renameDialog.addEventListener('cancel',event=>{if(form.querySelector('button[type=submit]').disabled)event.preventDefault();});
+ form.onsubmit=async event=>{
+  event.preventDefault();if(!renameTarget)return;const target=renameTarget,submit=event.submitter;submit.disabled=true;cancel.disabled=true;
+  try{
+   const result=await api('rename',{type:target.type,item:target.id,name:field.value});config.project=result.project;
+   const item=result.project.items[target.type].find(item=>item.id===target.id),row=target.button.closest('.object-row');
+   row.querySelector('h3').textContent=item.name;target.button.dataset.filename=item.filename;
+   if(target.type==='doc'){
+    const path='/pro/'+config.project.id+'/doc/'+encodeURIComponent(item.public_filename),copy=row.querySelector('[data-copy]');
+    row.querySelector('a').setAttribute('href',path);copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
+   }
+   renameDialog.close();target.button.focus({preventScroll:true});show('Файл переименован.',false,target.button);
+  }catch(e){show(e.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
+ };
+}
 async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
 document.querySelectorAll('.object-list').forEach(list=>{
  list.style.overflowAnchor='none';
