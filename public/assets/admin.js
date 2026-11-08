@@ -1,6 +1,6 @@
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
 const notice=document.querySelector('#notice');
-function show(message,error=false){notice.textContent=message;notice.className=error?'error':'notice';notice.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function show(message,error=false,scroll=true){notice.textContent=message;notice.className=error?'error':'notice';if(scroll)notice.scrollIntoView({behavior:'smooth',block:'nearest'});}
 async function api(action,data={}){
  const body=data instanceof FormData?data:new FormData();
  if(!(data instanceof FormData))for(const [k,v]of Object.entries(data))body.append(k,v);
@@ -37,8 +37,9 @@ async function copy(value){try{await navigator.clipboard.writeText(value);show('
 document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>copy(button.dataset.copy));
 document.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{if(!confirm('Удалить объект и его файл? Ссылка перестанет работать.'))return;button.disabled=true;try{await api('delete_item',{type:button.closest('[data-type]').dataset.type,item:button.dataset.delete});location.reload();}catch(e){show(e.message,true);button.disabled=false;}});
 document.querySelectorAll('[data-rename]').forEach(button=>button.onclick=async()=>{const name=prompt('Название:',button.dataset.name);if(name===null)return;try{await api('rename',{type:button.closest('[data-type]').dataset.type,item:button.dataset.rename,name});location.reload();}catch(e){show(e.message,true);}});
-async function persist(list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});show('Порядок сохранён.');}catch(e){show(e.message+' Обновите страницу перед продолжением.',true);}}
+async function persist(list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,false);}}
 document.querySelectorAll('.object-list').forEach(list=>{
+ list.style.overflowAnchor='none';
  let dragged=null;
  list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle');if(!handle){event.preventDefault();return;}dragged=handle.closest('.object-row');dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',dragged.dataset.id);});
  list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();const target=event.target.closest('.object-row');if(target&&target!==dragged){const rect=target.getBoundingClientRect();list.insertBefore(dragged,event.clientY<rect.top+rect.height/2?target:target.nextSibling);}});

@@ -49,7 +49,10 @@ try {
             json_out(['deleted'=>true]);
         } elseif ($action === 'save') {
             $name = text_field('name', 200); if ($name === '') fail('Введите название проекта.');
-            $p['name'] = $name; $p['description'] = text_field('description', 2000);
+            $description = text_field('description', 48);
+            $length = preg_match_all('/./us', $description, $characters);
+            if ($length === false || $length > 48 || preg_match('/[\r\n]/', $description)) fail('Описание должно быть однострочным и не длиннее 48 символов.');
+            $p['name'] = $name; $p['description'] = $description;
             save_project($p);
         } elseif ($action === 'upload') {
             $type = text_field('type', 3); if (!in_array($type, ['360','3d','doc'],true)) fail('Неверный раздел.');

@@ -27,7 +27,7 @@ $labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'До�
 <a href="/admin/">← Все проекты</a><h1><?=e($p['name'])?></h1><p class="project-link"><a href="/pro/<?=e($p['id'])?>/" target="_blank" rel="noopener"><?=e(SITE_URL)?>/pro/<?=e($p['id'])?>/ ↗</a> <button class="secondary" data-copy="<?=e(SITE_URL.'/pro/'.$p['id'].'/')?>">Скопировать ссылку</button></p>
 <details class="card" open><summary>Настройки проекта</summary><form id="project-settings" class="form-grid">
 <div class="wide"><label for="project-name">Название проекта</label><input id="project-name" name="name" value="<?=e($p['name'])?>" maxlength="200" required></div>
-<div class="wide"><label for="description">Описание для клиента и карточек ссылок</label><textarea id="description" name="description" maxlength="2000"><?=e($p['description'])?></textarea></div>
+<div class="wide"><label for="description">Описание для клиента и карточек ссылок</label><input id="description" name="description" type="text" maxlength="48" value="<?=e($p['description'])?>"></div>
 <div class="wide actions"><button type="submit">Сохранить настройки</button><span class="muted small">Переименование не меняет ссылки.</span><button type="button" class="danger" id="delete-project">Удалить проект</button></div>
 </form></details>
 <?php foreach($labels as $type=>$label):$type=(string)$type; ?>
@@ -43,5 +43,5 @@ $labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'До�
 <?php endif ?>
 <dialog id="new-dialog" class="dialog"><form id="create-form"><h2>Новый проект</h2><label for="new-name">Название проекта</label><input id="new-name" name="name" maxlength="200" required><div class="actions"><button type="button" class="secondary" data-close>Отмена</button><button>Создать проект</button></div></form></dialog>
 <?php json_script('admin-config',['csrf'=>$_SESSION['csrf'],'project'=>$selected]); ?>
-<script type="module" src="/assets/admin.js"></script></div>
+<script type="module" src="/assets/admin.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/../assets/admin.js'),0,12))?>"></script></div>
 <?php endif ?></body></html>
