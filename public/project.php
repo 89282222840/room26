@@ -20,6 +20,7 @@ try {
         header('Content-Type: '.$mime);header('Content-Disposition: '.$disposition);header('Content-Length: '.filesize($source));header('Cache-Control: public, max-age=86400');
         if($_SERVER['REQUEST_METHOD']!=='HEAD')readfile($source);exit;
     }
+    $showProjectLink = ((int)!empty($p['items']['360']) + (int)!empty($p['items']['3d']) + (int)!empty($p['items']['doc'])) > 1;
     $base='/pro/'.$p['id'].'/';$canonical=$base.($type!==''?$type.'/':'');
     $current=null;$items=[];
     if(in_array($type,['360','3d'],true)) {
@@ -43,12 +44,12 @@ try {
 </head><body class="<?=$current?'viewer-page':''?>">
 <?php if($current): ?>
 <div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" class="viewer-title"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status" role="status">Загрузка…</div>
-<nav class="viewer-controls" aria-label="Управление просмотром"><a class="button secondary" href="<?=e($base)?>">Проект</a><?php if(count($items)>1): ?><button id="previous" aria-label="Предыдущий объект">←</button><button id="next" aria-label="Следующий объект">→</button><?php endif ?><button id="show-list"><?=$type==='360'?'Все панорамы':'Все модели'?></button></nav>
+<?php if($showProjectLink || count($items)>1): ?><nav class="viewer-controls" aria-label="Управление просмотром"><?php if($showProjectLink): ?><a class="button secondary" href="<?=e($base)?>">Проект</a><?php endif ?><?php if(count($items)>1): ?><button id="previous" aria-label="Предыдущий объект">←</button><button id="next" aria-label="Следующий объект">→</button><?php endif ?><?php if(count($items)>1): ?><button id="show-list"><?=$type==='360'?'Все панорамы':'Все модели'?></button><?php endif ?></nav><?php endif ?>
 <dialog id="object-list" class="dialog viewer-list"><div class="section-header"><h2><?=$type==='360'?'Панорамы 360°':'3D-модели'?></h2><button class="secondary" id="close-list">Закрыть</button></div><div class="grid"><?php foreach($items as $item): ?><button class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></dialog>
-<?php json_script('viewer-config',['type'=>$type,'items'=>$items,'current'=>$current['id'],'projectName'=>$p['name'],'description'=>$description]); ?><script type="module" src="/assets/viewer.js"></script>
+<?php json_script('viewer-config',['type'=>$type,'items'=>$items,'current'=>$current['id'],'projectName'=>$p['name'],'description'=>$description]); ?><script type="module" src="/assets/viewer.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/assets/viewer.js'),0,12))?>"></script>
 <noscript><div class="viewer-status">Для просмотра включите JavaScript в браузере.</div></noscript>
 <?php else: ?>
-<main class="shell"><header class="topbar"><span class="brand">ROOM26 / 360</span><?php if($type==='doc'): ?><a href="<?=e($base)?>">← Проект</a><?php endif ?></header><h1><?=e($type==='doc'?'Документы':$p['name'])?></h1>
+<main class="shell"><header class="topbar"><span class="brand">ROOM26 / 360</span><?php if($type==='doc' && $showProjectLink): ?><a href="<?=e($base)?>">← Проект</a><?php endif ?></header><h1><?=e($type==='doc'?'Документы':$p['name'])?></h1>
 <?php if($type==='doc'): ?><p class="muted"><?=e($p['name'])?></p><ul class="file-list"><?php foreach($p['items']['doc'] as $item): ?><li class="file-row"><div><a class="file-name" href="<?=e(item_url($p,'doc',$item))?>"><?=e($item['filename'])?></a><div class="muted small"><?=e(size_label($item['size']))?> · Загружен <?=e(date('d.m.Y H:i',strtotime($item['uploaded'])))?> МСК</div></div></li><?php endforeach ?></ul><?php if(!$p['items']['doc']): ?><p class="empty">Пока нет документов.</p><?php endif ?>
 <?php else: ?>
 <?php if($p['description']!==''): ?><p class="project-description muted"><?=e($p['description'])?></p><?php endif ?><div class="grid">

@@ -89,3 +89,22 @@ if(deleteDialog){
 }
 
 if(newProjectButton)newProjectButton.disabled=false;
+
+function isFileDrag(event){return Array.from(event.dataTransfer?.types||[]).includes('Files');}
+function clearDropHighlights(){document.querySelectorAll('.upload.is-dragover').forEach(form=>form.classList.remove('is-dragover'));}
+document.addEventListener('dragover',event=>{if(isFileDrag(event)){event.preventDefault();if(!(event.target instanceof Element)||!event.target.closest('form.upload'))event.dataTransfer.dropEffect='none';}});
+document.addEventListener('drop',event=>{if(isFileDrag(event)){event.preventDefault();clearDropHighlights();}});
+window.addEventListener('dragend',clearDropHighlights);
+document.querySelectorAll('form.upload').forEach(form=>{
+ const button=form.querySelector('button'),input=form.querySelector('input[type=file]');
+ const enter=event=>{if(!isFileDrag(event))return;event.preventDefault();event.dataTransfer.dropEffect=busy?'none':'copy';if(!busy)form.classList.add('is-dragover');};
+ form.addEventListener('dragenter',enter);form.addEventListener('dragover',enter);
+ form.addEventListener('dragleave',event=>{if(!(event.relatedTarget instanceof Node)||!form.contains(event.relatedTarget))form.classList.remove('is-dragover');});
+ form.addEventListener('drop',event=>{
+  if(!isFileDrag(event))return;event.preventDefault();event.stopPropagation();clearDropHighlights();
+  if(busy){show('Дождитесь завершения загрузки.',false,button);return;}
+  const files=Array.from(event.dataTransfer.files);if(!files.length)return;
+  const selection=new DataTransfer();for(const file of files)selection.items.add(file);input.files=selection.files;
+  input.dispatchEvent(new Event('change',{bubbles:true}));form.requestSubmit(button);
+ });
+});

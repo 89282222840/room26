@@ -10,3 +10,5 @@
 .clipboard-fallback{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none}
 .confirmation-dialog{position:fixed;inset:0;margin:auto;text-align:center}
 .confirmation-dialog h2{font-weight:700}.confirmation-dialog p{color:var(--muted)}.confirmation-dialog .actions{justify-content:center}.confirmation-dialog #confirm-delete-project{background:#b74646;color:white;border-color:#b74646}
+
+.upload{transition:border-color .15s,background-color .15s}.upload.is-dragover{border-color:var(--green);border-style:solid;background:#203e38;box-shadow:inset 0 0 0 1px var(--green)}.upload-drop-hint{margin:8px 0}

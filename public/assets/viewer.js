@@ -24,6 +24,6 @@ async function select(index,historyMode='push'){
  finally{busy=false;arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }
 document.querySelector('#previous')?.addEventListener('click',()=>select(active-1));document.querySelector('#next')?.addEventListener('click',()=>select(active+1));
-document.querySelector('#show-list').onclick=()=>dialog.showModal();document.querySelector('#close-list').onclick=()=>dialog.close();dialog.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{dialog.close();select(config.items.findIndex(i=>i.id===button.dataset.item));});
+document.querySelector('#show-list')?.addEventListener('click',()=>dialog.showModal());document.querySelector('#close-list').onclick=()=>dialog.close();dialog.querySelectorAll('[data-item]').forEach(button=>button.onclick=()=>{dialog.close();select(config.items.findIndex(i=>i.id===button.dataset.item));});
 window.addEventListener('popstate',()=>{const id=new URL(location.href).searchParams.get('item')||config.current;const index=config.items.findIndex(i=>i.id===id);if(index>=0){if(busy)location.reload();else select(index,'none');}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>select(active,'none'),{once:true});else select(active,'none');
