@@ -4,3 +4,9 @@
 #viewer.viewer{position:fixed;inset:0;width:100%;height:100%}
 
 .project-cover{display:block;width:100%;aspect-ratio:2;overflow:hidden;border-radius:10px}.project-cover img{display:block;width:100%;height:100%;object-fit:cover}.project-delete{justify-content:flex-end;margin-top:32px}
+
+.feedback-tip{position:absolute;z-index:10000;left:0;top:0;max-width:min(320px,calc(100vw - 24px));padding:8px 12px;border:1px solid #4c7169;border-radius:8px;background:#d5f7ed;color:#122a23;box-shadow:0 4px 18px #0004;font-size:13px;font-weight:500;line-height:1.4;overflow-wrap:anywhere;pointer-events:none;overflow-anchor:none}
+.feedback-error{background:#452c31;border-color:#c97b7b;color:#ffd0d0}
+.clipboard-fallback{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none}
+.confirmation-dialog{position:fixed;inset:0;margin:auto;text-align:center}
+.confirmation-dialog h2{font-weight:700}.confirmation-dialog p{color:var(--muted)}.confirmation-dialog .actions{justify-content:center}.confirmation-dialog #confirm-delete-project{background:#b74646;color:white;border-color:#b74646}

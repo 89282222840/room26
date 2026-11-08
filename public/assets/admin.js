@@ -1,6 +1,23 @@
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
-const notice=document.querySelector('#notice');
-function show(message,error=false,scroll=true){notice.textContent=message;notice.className=error?'error':'notice';if(scroll)notice.scrollIntoView({behavior:'smooth',block:'nearest'});}
+let clearFeedback=()=>{};
+function show(message,error=false,anchor=document.activeElement){
+ clearFeedback();
+ if(!(anchor instanceof Element)||anchor===document.body)anchor=document.querySelector('.topbar .button, #new-project, button');
+ if(!anchor)return;
+ const tip=document.createElement('div');tip.className='feedback-tip'+(error?' feedback-error':'');tip.textContent=message;tip.setAttribute('role',error?'alert':'status');
+ const modal=anchor.closest('dialog[open]'),parent=modal||document.body;parent.append(tip);
+ function position(){
+  const box=anchor.getBoundingClientRect(),size=tip.getBoundingClientRect();
+  const left=Math.max(12,Math.min(innerWidth-size.width-12,box.left+(box.width-size.width)/2));
+  let top=box.top-size.height-8;if(top<12)top=box.bottom+8;top=Math.max(12,Math.min(innerHeight-size.height-12,top));
+  const origin=modal?modal.getBoundingClientRect():{left:-scrollX,top:-scrollY};
+  tip.style.left=(left-origin.left+(modal?modal.scrollLeft-modal.clientLeft:0))+'px';
+  tip.style.top=(top-origin.top+(modal?modal.scrollTop-modal.clientTop:0))+'px';
+ }
+ position();window.addEventListener('resize',position);document.addEventListener('scroll',position,true);
+ const timer=setTimeout(()=>clearFeedback(),1000);
+ clearFeedback=()=>{clearTimeout(timer);tip.remove();window.removeEventListener('resize',position);document.removeEventListener('scroll',position,true);clearFeedback=()=>{};};
+}
 async function api(action,data={}){
  const body=data instanceof FormData?data:new FormData();
  if(!(data instanceof FormData))for(const [k,v]of Object.entries(data))body.append(k,v);
@@ -10,8 +27,8 @@ async function api(action,data={}){
  if(!response.ok)throw Error(result.error||'Не удалось выполнить запрос.');return result;
 }
 const dialog=document.querySelector('#new-dialog'),newProjectButton=document.querySelector('#new-project');if(newProjectButton)newProjectButton.onclick=()=>dialog.showModal();document.querySelector('[data-close]').onclick=()=>dialog.close();
-document.querySelector('#create-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const r=await api('create',new FormData(event.target));location.href='/admin/?p='+r.project.id;}catch(e){dialog.close();show(e.message,true);button.disabled=false;}};
-document.querySelector('#project-settings')?.addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{await api('save',new FormData(event.target));show('Настройки сохранены.');document.querySelector('h1').textContent=document.querySelector('#project-name').value;}catch(e){show(e.message,true);}finally{event.submitter.disabled=false;}});
+document.querySelector('#create-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const r=await api('create',new FormData(event.target));location.href='/admin/?p='+r.project.id;}catch(e){dialog.close();show(e.message,true,newProjectButton);button.disabled=false;}};
+document.querySelector('#project-settings')?.addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{await api('save',new FormData(event.target));show('Настройки сохранены.',false,event.submitter);document.querySelector('h1').textContent=document.querySelector('#project-name').value;}catch(e){show(e.message,true,event.submitter);}finally{event.submitter.disabled=false;}});
 async function jpeg(canvas,w,h){const out=document.createElement('canvas');out.width=w;out.height=h;const ctx=out.getContext('2d');ctx.fillStyle='#dce2e8';ctx.fillRect(0,0,w,h);const scale=Math.max(w/canvas.width,h/canvas.height);const width=canvas.width*scale,height=canvas.height*scale;ctx.drawImage(canvas,(w-width)/2,(h-height)/2,width,height);return new Promise((resolve,reject)=>out.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать JPG-превью.')),'image/jpeg',.9));}
 async function previews(file,type){
  const url=URL.createObjectURL(file);let view,stage,image;
@@ -31,25 +48,44 @@ document.querySelectorAll('form.upload').forEach(form=>form.onsubmit=async event
   const body=new FormData();body.set('type',type);body.set('file',file);
   if(type!=='doc'){const p=await previews(file,type);body.set('thumb',p.thumb,'thumb.jpg');body.set('og',p.og,'og.jpg');}
   status.textContent=`${done+1} / ${files.length}: ${file.name}\nЗагрузка на сервер…`;await api('upload',body);done++;bar.value=done/files.length*100;
- }busy=false;location.reload();}catch(e){busy=false;status.textContent=`Загружено: ${done} из ${files.length}. ${e.message}`;show(status.textContent,true);document.querySelectorAll('form.upload button').forEach(b=>b.disabled=false);if(done){const reload=document.createElement('button');reload.type='button';reload.textContent='Обновить список';reload.onclick=()=>location.reload();status.append(document.createElement('br'),reload);}}
+ }busy=false;location.reload();}catch(e){busy=false;const message=`Загружено: ${done} из ${files.length}. ${e.message}`+(done?' Обновите страницу для просмотра загруженных файлов.':'');status.textContent='';bar.classList.add('hidden');document.querySelectorAll('form.upload button').forEach(b=>b.disabled=false);show(message,true,form.querySelector('button'));}
 });
-async function copy(value){try{await navigator.clipboard.writeText(value);show('Ссылка скопирована.');}catch{prompt('Скопируйте ссылку:',value);}}
-document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>copy(button.dataset.copy));
-document.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{if(!confirm('Удалить объект и его файл? Ссылка перестанет работать.'))return;button.disabled=true;try{await api('delete_item',{type:button.closest('[data-type]').dataset.type,item:button.dataset.delete});location.reload();}catch(e){show(e.message,true);button.disabled=false;}});
-document.querySelectorAll('[data-rename]').forEach(button=>button.onclick=async()=>{const name=prompt('Название:',button.dataset.name);if(name===null)return;try{await api('rename',{type:button.closest('[data-type]').dataset.type,item:button.dataset.rename,name});location.reload();}catch(e){show(e.message,true);}});
-async function persist(list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,false);}}
+async function copy(value,button){
+ try{
+  try{await navigator.clipboard.writeText(value);}catch{
+   const input=document.createElement('textarea');input.value=value;input.className='clipboard-fallback';input.setAttribute('aria-hidden','true');document.body.append(input);
+   let copied=false;try{input.focus({preventScroll:true});input.select();copied=document.execCommand('copy');}finally{input.remove();button.focus({preventScroll:true});}
+   if(!copied)throw Error('Не удалось скопировать ссылку.');
+  }
+  show('Ссылка скопирована.',false,button);
+ }catch(e){show(e.message,true,button);}
+}
+document.querySelectorAll('[data-copy]').forEach(button=>button.onclick=()=>copy(button.dataset.copy,button));
+document.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{if(!confirm('Удалить объект и его файл? Ссылка перестанет работать.'))return;button.disabled=true;try{await api('delete_item',{type:button.closest('[data-type]').dataset.type,item:button.dataset.delete});location.reload();}catch(e){show(e.message,true,button);button.disabled=false;}});
+document.querySelectorAll('[data-rename]').forEach(button=>button.onclick=async()=>{const name=prompt('Название:',button.dataset.name);if(name===null)return;try{await api('rename',{type:button.closest('[data-type]').dataset.type,item:button.dataset.rename,name});location.reload();}catch(e){show(e.message,true,button);}});
+async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
 document.querySelectorAll('.object-list').forEach(list=>{
  list.style.overflowAnchor='none';
  let dragged=null;
  list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle');if(!handle){event.preventDefault();return;}dragged=handle.closest('.object-row');dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',dragged.dataset.id);});
  list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();const target=event.target.closest('.object-row');if(target&&target!==dragged){const rect=target.getBoundingClientRect();list.insertBefore(dragged,event.clientY<rect.top+rect.height/2?target:target.nextSibling);}});
- list.addEventListener('drop',async event=>{if(!dragged)return;event.preventDefault();dragged.classList.remove('dragging');dragged=null;await persist(list);});
+ list.addEventListener('drop',async event=>{if(!dragged)return;event.preventDefault();const handle=dragged.querySelector('.drag-handle');dragged.classList.remove('dragging');dragged=null;await persist(list,handle);});
  list.addEventListener('dragend',()=>{dragged?.classList.remove('dragging');dragged=null;});
  // Touch drag uses the same handle; native HTML drag remains available on desktop.
- list.querySelectorAll('.drag-handle').forEach(handle=>{let touchRow=null,changed=false;handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;touchRow=handle.closest('.object-row');changed=false;handle.setPointerCapture(event.pointerId);touchRow.classList.add('dragging');});handle.addEventListener('pointermove',event=>{if(!touchRow)return;const target=document.elementsFromPoint(event.clientX,event.clientY).map(el=>el.closest('.object-row')).find(row=>row&&row!==touchRow&&row.parentElement===list);if(target){const rect=target.getBoundingClientRect();list.insertBefore(touchRow,event.clientY<rect.top+rect.height/2?target:target.nextSibling);changed=true;}});const end=()=>{if(touchRow){touchRow.classList.remove('dragging');touchRow=null;if(changed)persist(list);}};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});
- list.querySelectorAll('[data-move]').forEach(button=>button.onclick=async()=>{const row=button.closest('.object-row');if(button.dataset.move==='up'&&row.previousElementSibling)list.insertBefore(row,row.previousElementSibling);else if(button.dataset.move==='down'&&row.nextElementSibling)list.insertBefore(row.nextElementSibling,row);else return;await persist(list);});
+ list.querySelectorAll('.drag-handle').forEach(handle=>{let touchRow=null,changed=false;handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;touchRow=handle.closest('.object-row');changed=false;handle.setPointerCapture(event.pointerId);touchRow.classList.add('dragging');});handle.addEventListener('pointermove',event=>{if(!touchRow)return;const target=document.elementsFromPoint(event.clientX,event.clientY).map(el=>el.closest('.object-row')).find(row=>row&&row!==touchRow&&row.parentElement===list);if(target){const rect=target.getBoundingClientRect();list.insertBefore(touchRow,event.clientY<rect.top+rect.height/2?target:target.nextSibling);changed=true;}});const end=()=>{if(touchRow){touchRow.classList.remove('dragging');touchRow=null;if(changed)persist(list,handle);}};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});
+ list.querySelectorAll('[data-move]').forEach(button=>button.onclick=async()=>{const row=button.closest('.object-row');if(button.dataset.move==='up'&&row.previousElementSibling)list.insertBefore(row,row.previousElementSibling);else if(button.dataset.move==='down'&&row.nextElementSibling)list.insertBefore(row.nextElementSibling,row);else return;await persist(list,button);});
 });
 
-document.querySelector('#delete-project')?.addEventListener('click',async()=>{if(!confirm('Удалить проект целиком со всеми панорамами, моделями и документами? Восстановить их через сайт будет невозможно.'))return;try{await api('delete_project');location.href='/admin/';}catch(e){show(e.message,true);}});
+const deleteDialog=document.querySelector('#delete-project-dialog');
+if(deleteDialog){
+ const opener=document.querySelector('#delete-project'),confirmDelete=document.querySelector('#confirm-delete-project'),cancelDelete=document.querySelector('#cancel-delete-project');let deleting=false;
+ opener.onclick=()=>deleteDialog.showModal();cancelDelete.onclick=()=>deleteDialog.close();
+ deleteDialog.addEventListener('cancel',event=>{if(deleting)event.preventDefault();});
+ confirmDelete.onclick=async()=>{
+  if(deleting)return;deleting=true;confirmDelete.disabled=true;cancelDelete.disabled=true;
+  try{await api('delete_project');location.href='/admin/';}
+  catch(e){deleting=false;confirmDelete.disabled=false;cancelDelete.disabled=false;show(e.message,true,confirmDelete);}
+ };
+}
 
 if(newProjectButton)newProjectButton.disabled=false;
