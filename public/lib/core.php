@@ -92,7 +92,7 @@ function document_by_filename(array $p, string $filename): array {
     fail('Файл не найден.', 404);
 }
 function item_url(array $p, string $type, array $item): string { return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
-function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind], '', '&', PHP_QUERY_RFC3986); }
+function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind!=='source'?($item['preview_version']??null):null],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
     fail('Объект не найден.', 404);
@@ -117,6 +117,7 @@ function public_headers(): void {
     header('Referrer-Policy: same-origin');
     header("Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 }
+function asset_version(string $file): string { $path=__DIR__.'/../assets/'.$file;return is_file($path)?substr(hash_file('sha256',$path),0,12):'initial'; }
 function css_url(): string { return '/assets/site.css?v=' . substr(hash_file('sha256', __DIR__ . '/../assets/site.css'), 0, 12); }
 function head_tags(string $title, string $description, string $image, string $path): void {
     $description = $description !== '' ? $description : 'Панорамы 360°, 3D-модели и документы проекта.';

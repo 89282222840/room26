@@ -33,7 +33,7 @@ async function jpeg(canvas,w,h){const out=document.createElement('canvas');out.w
 async function previews(file,type){
  const url=URL.createObjectURL(file);let view,stage,image;
  try{
-  if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js')).modelView(stage,url,{preview:true});image=view.canvas;}
+  if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js?v='+config.versions.model)).modelView(stage,url,{preview:true});image=view.canvas;}
   else{image=new Image();image.src=url;await image.decode();if(Math.abs(image.width/image.height-2)>.1)throw Error('Панорама должна иметь соотношение сторон 2:1.');}
   return {thumb:await jpeg(image,400,200),og:await jpeg(image,1200,630)};
  }finally{view?.dispose();stage?.remove();URL.revokeObjectURL(url);}
@@ -132,4 +132,15 @@ document.querySelectorAll('form.upload').forEach(form=>{
   const selection=new DataTransfer();for(const file of files)selection.items.add(file);input.files=selection.files;
   input.dispatchEvent(new Event('change',{bubbles:true}));form.requestSubmit(button);
  });
+});
+
+document.querySelectorAll('[data-camera]').forEach(button=>button.onclick=async()=>{
+ button.disabled=true;
+ try{
+  const {openCameraEditor}=await import('./camera-editor.js?v='+config.versions.editor),type=button.closest('[data-type]').dataset.type;
+  await openCameraEditor({button,type,projectId:config.project.id,item:config.project.items[type].find(item=>item.id===button.dataset.camera),versions:config.versions,api,show,onUpdate(project){
+   config.project=project;const item=project.items[type].find(item=>item.id===button.dataset.camera),image=button.closest('.object-row').querySelector('img');
+   if(image&&item.preview_version){const url=new URL(image.src);url.searchParams.set('v',item.preview_version);image.src=url.href;}
+  }});
+ }catch(error){show(error.message,true,button);}finally{button.disabled=false;}
 });

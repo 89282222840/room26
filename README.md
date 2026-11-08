@@ -25,3 +25,9 @@ Pushes to `main` deploy via GitHub Actions and pinned-host-key SFTP. Existing fi
 Pannellum 2.5.6 and three.js 0.170.0, including their local dependencies and license notices, are vendored in `public/assets/vendor/`. No runtime CDN requests are needed. The PHP-rendered HTML contains title, description, canonical URL and Open Graph/Twitter metadata for project and individual object links. Messengers may cache cards.
 
 Authentication credentials are stored only on the hosting, in `.room26-auth.json` outside the document root (mode 0600). The deployment migrates the existing credentials from the legacy login page once, before replacing application files. The migrated hash is never logged or placed in repository source. Back up this protected configuration separately.
+
+## Saved views
+
+Panoramas and models have independent `mobile` and `desktop` views stored per item in project metadata. The editor uses a logical 393×740 phone viewport and a 1280×720 desktop viewport, scaled to fit the available admin screen. Client viewports at 767 CSS pixels or less use the mobile view; wider viewports use the desktop view, including when resized across the breakpoint. Objects without settings use automatic framing.
+
+Saving a model view automatically renders new 400×200 and 1200×630 JPEG previews from the currently selected view and changes their versioned URLs. Saving a panorama view updates only its yaw, pitch and horizontal field of view; panorama previews are preserved.

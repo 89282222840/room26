@@ -20,6 +20,22 @@ function jpeg_upload(string $field, string $target, int $width, int $height): vo
     if ($f['size'] > 5*1024*1024 || !$info || $info[0] !== $width || $info[1] !== $height || $info[2] !== IMAGETYPE_JPEG) fail('Не удалось создать JPG-превью.');
     if (!move_uploaded_file($f['tmp_name'], $target) || !chmod($target, 0644)) fail('Не удалось сохранить превью.', 500);
 }
+function saved_views(string $type): array {
+    $raw=json_decode(text_field('views',5000),true);if(!is_array($raw))fail('Некорректные ракурсы.');$result=[];
+    foreach(['mobile','desktop'] as $profile){
+        $v=$raw[$profile]??null;if(!is_array($v))fail('Нужно сохранить ракурсы смартфона и ПК.');
+        $number=function($value,float $min,float $max): float {
+            if((!is_int($value)&&!is_float($value))||!is_finite((float)$value)||$value<$min||$value>$max)fail('Некорректные параметры камеры.');return (float)$value;
+        };
+        if($type==='360')$result[$profile]=['yaw'=>$number($v['yaw']??null,-3600,3600),'pitch'=>$number($v['pitch']??null,-90,90),'hfov'=>$number($v['hfov']??null,10,120)];
+        else{
+            $out=[];foreach(['position','target'] as $key){if(!isset($v[$key])||!is_array($v[$key])||count($v[$key])!==3||array_keys($v[$key])!==[0,1,2])fail('Некорректная позиция камеры.');$out[$key]=array_map(function($n)use($number){return $number($n,-1e15,1e15);},$v[$key]);}
+            $distance=0;for($i=0;$i<3;$i++)$distance+=pow($out['position'][$i]-$out['target'][$i],2);if($distance<1e-20)fail('Камера должна находиться вне точки наблюдения.');
+            $out['fov']=$number($v['fov']??null,5,120);$out['zoom']=$number($v['zoom']??null,.01,100);$result[$profile]=$out;
+        }
+    }
+    return $result;
+}
 function remove_tree(string $dir): void {
     foreach (new FilesystemIterator($dir, FilesystemIterator::SKIP_DOTS) as $f) {
         if ($f->isDir() && !$f->isLink()) remove_tree($f->getPathname()); else unlink($f->getPathname());
@@ -93,6 +109,18 @@ try {
             $items = $p['items'][$type]; $old = array_column($items,'id');
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
+        } elseif ($action === 'save_views') {
+            $type=text_field('type',3);if(!in_array($type,['360','3d'],true))fail('Неверный раздел.');
+            $id=text_field('item',6);find_item($p,$type,$id);$views=saved_views($type);
+            foreach($p['items'][$type] as &$item)if($item['id']===$id)$item['views']=$views;unset($item);
+            if($type==='3d'){
+                $prefix=project_path($p['id']).'/3d/'.$id;$temp=project_path($p['id']).'/3d/.preview-'.bin2hex(random_bytes(6));
+                try{
+                    jpeg_upload('thumb',$temp.'-thumb.jpg',400,200);jpeg_upload('og',$temp.'-og.jpg',1200,630);
+                    if(!rename($temp.'-thumb.jpg',$prefix.'-thumb.jpg')||!rename($temp.'-og.jpg',$prefix.'-og.jpg'))fail('Не удалось обновить превью.',500);
+                    foreach($p['items']['3d'] as &$item)if($item['id']===$id)$item['preview_version']=bin2hex(random_bytes(6));unset($item);save_project($p);
+                }finally{foreach([$temp.'-thumb.jpg',$temp.'-og.jpg'] as $file)if(is_file($file))unlink($file);}
+            }else save_project($p);
         } elseif ($action === 'rename') {
             $type = text_field('type',3); if (!in_array($type,['360','3d','doc'],true)) fail('Неверный раздел.');
             $id=text_field('item',6);$item=find_item($p,$type,$id);$name=text_field('name',200);

@@ -6,7 +6,7 @@ import { KTX2Loader } from './vendor/three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from './vendor/three/addons/libs/meshopt_decoder.module.js';
 export async function modelView(container, url, options = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(options.preview ? 1 : Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio((options.preview || options.editor) ? 1 : Math.min(devicePixelRatio, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const width = options.preview ? 1200 : Math.max(container.clientWidth, 1);
@@ -16,7 +16,7 @@ export async function modelView(container, url, options = {}) {
   const camera = new THREE.PerspectiveCamera(40, width / height, .01, 10000);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x788698, 3));
   for (const [x,y,z,power] of [[3,5,4,3],[-3,2,-2,2]]) { const light = new THREE.DirectionalLight(0xffffff,power);light.position.set(x,y,z);scene.add(light); }
-  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = !options.editor;
   const manager = new THREE.LoadingManager();
   manager.setURLModifier((value) => {
     if (value.startsWith('blob:') || value.startsWith('data:')) return value;
@@ -40,16 +40,44 @@ export async function modelView(container, url, options = {}) {
     if(box.isEmpty())throw new Error('В модели нет видимой геометрии.');
     const center=box.getCenter(new THREE.Vector3()), size=box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, .001);
-    const distance=radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) * Math.max(1,1/camera.aspect) * 1.15;
-    camera.near=Math.max(radius/10000,.000001);camera.far=distance+radius*100;camera.updateProjectionMatrix();
-    camera.position.copy(center).add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance));controls.target.copy(center);controls.update();
-    if(gltf.animations.length && !options.preview){mixer=new THREE.AnimationMixer(gltf.scene);mixer.clipAction(gltf.animations[0]).play();}
+    function autoView(w=container.clientWidth,h=container.clientHeight){
+      const distance=radius / Math.sin(THREE.MathUtils.degToRad(20)) * Math.max(1,h/Math.max(w,1)) * 1.15;
+      return {position:center.clone().add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance)).toArray(),target:center.toArray(),fov:40,zoom:1};
+    }
+    function setView(state){
+      state=state||autoView();
+      camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=state.fov||40;camera.zoom=state.zoom||1;
+      camera.near=Math.max(radius/10000,.000001);camera.far=Math.max(camera.position.distanceTo(center)+radius*100,radius*1000);camera.updateProjectionMatrix();
+      controls.update();renderer.render(scene,camera);
+    }
+    function getView(){controls.update();return {position:camera.position.toArray(),target:controls.target.toArray(),fov:camera.fov,zoom:camera.zoom};}
+    let profile=container.clientWidth<=767?'mobile':'desktop';
+    setView(options.view||options.views?.[profile]||autoView(width,height));
+    function resize(w=container.clientWidth,h=container.clientHeight){
+      if(!w||!h||disposed)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+      const next=w<=767?'mobile':'desktop';
+      if(options.views && next!==profile){profile=next;setView(options.views[next]||autoView(w,h));}
+      renderer.render(scene,camera);
+    }
+    if(gltf.animations.length && !options.preview && !options.editor){mixer=new THREE.AnimationMixer(gltf.scene);mixer.clipAction(gltf.animations[0]).play();}
     renderer.render(scene,camera);
     const clock = new THREE.Clock();
+    function tick(){mixer?.update(Math.min(clock.getDelta(),.1));controls.update();renderer.render(scene,camera);}
     if(!options.preview){
-      observer=new ResizeObserver(()=>{const w=container.clientWidth,h=container.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();});observer.observe(container);
-      renderer.setAnimationLoop(()=>{mixer?.update(Math.min(clock.getDelta(),.1));controls.update();renderer.render(scene,camera);});
+      observer=new ResizeObserver(()=>resize());observer.observe(container);
+      renderer.setAnimationLoop(tick);
     }
-    return {canvas:renderer.domElement,dispose};
+    async function capture(w,h){
+      const oldSize=renderer.getSize(new THREE.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;
+      renderer.setAnimationLoop(null);
+      try{
+        renderer.setPixelRatio(1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.render(scene,camera);
+        return await new Promise((resolve,reject)=>renderer.domElement.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать превью.')),'image/jpeg',.9));
+      }finally{
+        renderer.setPixelRatio(ratio);renderer.setSize(oldSize.x,oldSize.y);camera.aspect=aspect;camera.updateProjectionMatrix();renderer.render(scene,camera);if(!options.preview&&!disposed)renderer.setAnimationLoop(tick);
+      }
+    }
+    function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();renderer.render(scene,camera);}
+    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy};
   } catch(error) {dispose();throw error;}
 }

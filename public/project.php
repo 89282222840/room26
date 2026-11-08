@@ -28,7 +28,7 @@ try {
         $current=$id!==''?find_item($p,$type,$id):start_item($p,$type);
         if(!$current)fail('В этом разделе пока нет объектов.',404);
         if($id!=='')$canonical.='?item='.$current['id'];
-        foreach($p['items'][$type] as $item)$items[]=['id'=>$item['id'],'name'=>$item['name'],'url'=>item_url($p,$type,$item),'thumb'=>asset_url($p,$type,$item,'thumb'),'og'=>asset_url($p,$type,$item,'og'),'source'=>asset_url($p,$type,$item,'source')];
+        foreach($p['items'][$type] as $item)$items[]=['id'=>$item['id'],'name'=>$item['name'],'url'=>item_url($p,$type,$item),'thumb'=>asset_url($p,$type,$item,'thumb'),'og'=>asset_url($p,$type,$item,'og'),'source'=>asset_url($p,$type,$item,'source'),'views'=>$item['views']??null];
     }
     if(substr($path,-1)!=='/') {header('Location: '.$canonical,true,301);exit;}
     $title=$current?$current['name']:($type==='doc'?'Документы — '.$p['name']:$p['name']);
@@ -40,13 +40,13 @@ try {
 }
 ?>
 <!doctype html><html lang="ru"><head><?php head_tags($title,$description,$image,$canonical); ?>
-<?php if($type==='360'): ?><link rel="stylesheet" href="/assets/vendor/pannellum/pannellum.css"><script defer src="/assets/vendor/pannellum/pannellum.js"></script><?php endif ?>
+
 </head><body class="<?=$current?'viewer-page':''?>">
 <?php if($current): ?>
 <div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" class="viewer-title"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status" role="status">Загрузка…</div>
 <?php if($showProjectLink || count($items)>1): ?><nav class="viewer-controls" aria-label="Управление просмотром"><?php if($showProjectLink): ?><a class="button secondary" href="<?=e($base)?>">Проект</a><?php endif ?><?php if(count($items)>1): ?><button id="previous" aria-label="Предыдущий объект">←</button><button id="next" aria-label="Следующий объект">→</button><?php endif ?><?php if(count($items)>1): ?><button id="show-list"><?=$type==='360'?'Все панорамы':'Все модели'?></button><?php endif ?></nav><?php endif ?>
 <dialog id="object-list" class="dialog viewer-list"><div class="section-header"><h2><?=$type==='360'?'Панорамы 360°':'3D-модели'?></h2><button class="secondary" id="close-list">Закрыть</button></div><div class="grid"><?php foreach($items as $item): ?><button class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></dialog>
-<?php json_script('viewer-config',['type'=>$type,'items'=>$items,'current'=>$current['id'],'projectName'=>$p['name'],'description'=>$description]); ?><script type="module" src="/assets/viewer.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/assets/viewer.js'),0,12))?>"></script>
+<?php json_script('viewer-config',['type'=>$type,'items'=>$items,'current'=>$current['id'],'projectName'=>$p['name'],'description'=>$description,'versions'=>['model'=>asset_version('model.js'),'panorama'=>asset_version('panorama.js')]]); ?><script type="module" src="/assets/viewer.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/assets/viewer.js'),0,12))?>"></script>
 <noscript><div class="viewer-status">Для просмотра включите JavaScript в браузере.</div></noscript>
 <?php else: ?>
 <main class="shell"><header class="topbar"><span class="brand">ROOM26 / 360</span><?php if($type==='doc' && $showProjectLink): ?><a href="<?=e($base)?>">← Проект</a><?php endif ?></header><h1><?=e($type==='doc'?'Документы':$p['name'])?></h1>

@@ -12,14 +12,8 @@ async function select(index,historyMode='push'){
  for(const [name,value]of Object.entries({'og:title':item.name,'og:image':new URL(item.og,location.origin).href,'og:url':new URL(item.url,location.origin).href}))document.querySelector(`meta[property="${name}"]`)?.setAttribute('content',value);
  dialog.querySelectorAll('[data-item]').forEach(b=>b.setAttribute('aria-current',String(b.dataset.item===item.id)));
  try{
-  if(config.type==='3d'){view=await (await import('./model.js')).modelView(container,item.source);status.hidden=true;}
-  else{
-   if(!window.pannellum)throw Error('Не удалось загрузить библиотеку панорам.');
-   await new Promise((resolve,reject)=>{
-    view=window.pannellum.viewer('viewer',{type:'equirectangular',panorama:item.source,autoLoad:true,showControls:true,showFullscreenCtrl:true,showZoomCtrl:true,keyboardZoom:true,compass:false,strings:{loadingLabel:'Загрузка…',bylineLabel:'',noPanoramaError:'Не удалось загрузить панораму.',webglError:'Браузер не поддерживает WebGL.'}});
-    view.on('load',()=>{status.hidden=true;resolve();});view.on('error',message=>reject(Error(message)));
-   });
-  }
+  const module=config.type==='3d'?await import('./model.js?v='+config.versions.model):await import('./panorama.js?v='+config.versions.panorama);
+  view=await (config.type==='3d'?module.modelView:module.panoramaView)(container,item.source,{views:item.views});status.hidden=true;
  }catch(e){status.textContent='Не удалось открыть объект. '+e.message;const retry=document.createElement('button');retry.textContent='Повторить';retry.onclick=()=>select(active,'none');status.append(document.createElement('br'),retry);}
  finally{busy=false;arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }
