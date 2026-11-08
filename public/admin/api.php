@@ -18,7 +18,7 @@ function uploaded(string $field): array {
 function jpeg_upload(string $field, string $target, int $width, int $height): void {
     $f = uploaded($field); $info = @getimagesize($f['tmp_name']);
     if ($f['size'] > 5*1024*1024 || !$info || $info[0] !== $width || $info[1] !== $height || $info[2] !== IMAGETYPE_JPEG) fail('Не удалось создать JPG-превью.');
-    if (!move_uploaded_file($f['tmp_name'], $target)) fail('Не удалось сохранить превью.', 500);
+    if (!move_uploaded_file($f['tmp_name'], $target) || !chmod($target, 0644)) fail('Не удалось сохранить превью.', 500);
 }
 function remove_tree(string $dir): void {
     foreach (new FilesystemIterator($dir, FilesystemIterator::SKIP_DOTS) as $f) {
@@ -29,6 +29,7 @@ function remove_tree(string $dir): void {
 $lock = null;
 try {
     if (!is_dir(STORAGE) && !mkdir(STORAGE, 0755, true)) fail('Нет доступа к папке проектов.', 500);
+    chmod(STORAGE, 0755);
     $lock = fopen(STORAGE . '/.write.lock', 'c');
     if (!$lock || !flock($lock, LOCK_EX)) fail('Не удалось заблокировать запись.', 503);
     $action = text_field('action', 30);
@@ -36,7 +37,8 @@ try {
         $name = text_field('name', 200); if ($name === '') fail('Введите название проекта.');
         $id = uid(STORAGE); $dir = project_path($id);
         if (!mkdir($dir, 0755)) fail('Не удалось создать проект.', 500);
-        foreach (['360','3d','doc'] as $type) mkdir($dir . '/' . $type, 0755);
+        chmod($dir, 0755);
+        foreach (['360','3d','doc'] as $type) { mkdir($dir . '/' . $type, 0755); chmod($dir . '/' . $type, 0755); }
         $p = ['id'=>$id, 'name'=>$name, 'description'=>'', 'created'=>date(DATE_ATOM), 'cover'=>'', 'start'=>['360'=>'','3d'=>''], 'items'=>['360'=>[], '3d'=>[], 'doc'=>[]]];
         save_project($p);
     } else {
@@ -78,6 +80,7 @@ try {
             try {
                 if ($type !== 'doc') { jpeg_upload('thumb',$prefix.'-thumb.jpg',400,200); jpeg_upload('og',$prefix.'-og.jpg',1200,630); }
                 if (!move_uploaded_file($file['tmp_name'], $prefix.'.'.$extension)) fail('Не удалось сохранить файл.',500);
+                if (!chmod($prefix.'.'.$extension, $type === 'doc' ? 0600 : 0644)) fail('Не удалось установить права файла.', 500);
                 $name = $type === 'doc' ? $filename : pathinfo($filename, PATHINFO_FILENAME);
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 $p['items'][$type][] = $item;

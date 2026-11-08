@@ -50,3 +50,5 @@ document.querySelectorAll('.object-list').forEach(list=>{
 });
 
 document.querySelector('#delete-project')?.addEventListener('click',async()=>{if(!confirm('Удалить проект целиком со всеми панорамами, моделями и документами? Восстановить их через сайт будет невозможно.'))return;try{await api('delete_project');location.href='/admin/';}catch(e){show(e.message,true);}});
+
+document.querySelector('#new-project').disabled=false;

@@ -109,4 +109,30 @@ jobs:
                           temporary = target + ".deploy-tmp"
                           sftp.put(str(path), temporary)
                           sftp.posix_rename(temporary, target)
+                  # Shared hosting may create PHP upload directories with a restrictive umask.
+                  # Repair only public media permissions; document payloads remain private.
+                  media_root = str(root / "pro")
+                  try:
+                      project_ids = sftp.listdir(media_root)
+                  except FileNotFoundError:
+                      project_ids = []
+                  else:
+                      sftp.chmod(media_root, 0o755)
+                  for project_id in project_ids:
+                      if not re.fullmatch(r"[a-f0-9]{6}", project_id):
+                          continue
+                      project_root = str(root / "pro" / project_id)
+                      sftp.chmod(project_root, 0o755)
+                      for section in ("360", "3d", "doc"):
+                          folder = project_root + "/" + section
+                          try:
+                              media_files = sftp.listdir(folder)
+                          except FileNotFoundError:
+                              continue
+                          sftp.chmod(folder, 0o755)
+                          if section == "doc":
+                              continue
+                          for media_file in media_files:
+                              if re.fullmatch(r"[a-f0-9]{6}(?:-(?:thumb|og)\.jpg|\.(?:jpg|png|webp|glb))", media_file):
+                                  sftp.chmod(folder + "/" + media_file, 0o644)
           print("Deployment completed.")

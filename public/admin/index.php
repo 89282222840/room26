@@ -16,7 +16,7 @@ $labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'До�
 <?php if($error): ?><p class="error" role="alert"><?=e($error)?></p><?php endif ?>
 <form method="post" action="/admin/"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><label for="username">Логин</label><input id="username" name="username" autocomplete="username" maxlength="100" required><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required><button>Войти</button></form></main>
 <?php else: ?>
-<div class="shell"><header class="topbar"><a class="brand" href="/admin/">ROOM26 / 360</a><div class="actions"><button id="new-project">Новый проект</button><form class="inline" method="post" action="/admin/"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><input type="hidden" name="action" value="logout"><button class="secondary">Выйти</button></form></div></header>
+<div class="shell"><header class="topbar"><a class="brand" href="/admin/">ROOM26 / 360</a><div class="actions"><button id="new-project" disabled>Новый проект</button><form class="inline" method="post" action="/admin/"><input type="hidden" name="csrf" value="<?=e($_SESSION['csrf'])?>"><input type="hidden" name="action" value="logout"><button class="secondary">Выйти</button></form></div></header>
 <div id="notice" class="notice hidden" role="status"></div>
 <?php if($error): ?><p class="error" role="alert"><?=e($error)?></p><?php endif ?>
 <?php if(!$selected): ?>
