@@ -3,7 +3,7 @@ DirectoryIndex index.php index.html
 RewriteEngine On
 RewriteRule ^(?:lib|\.git)(?:/|$) - [F,L]
 # Virtual original filenames always go through PHP, never through an executable upload.
-RewriteRule ^pro/([a-f0-9]{6})/doc/([^/]+)$ download.php?p=$1&file=$2 [END,B,QSA]
+RewriteRule ^pro/([a-f0-9]{6})/doc/([^/]+)$ /download.php?p=$1&file=$2 [L,B,QSA]
 RewriteRule (^|/)\. - [F,L]
 RewriteRule \.(?:ini|json|lock|tmp|bin)$ - [F,L,NC]
 RewriteRule ^pro(?:/.*)?$ project.php [END,QSA]
