@@ -157,3 +157,10 @@ if(captionDialog){
   try{const result=await api('caption',{item:target.dataset.caption,name:field.value});config.project=result.project;const item=result.project.items.photo.find(item=>item.id===target.dataset.caption),tile=target.closest('.photo-tile');tile.querySelector('.photo-tile-caption').textContent=item.name;target.dataset.name=item.name;tile.querySelector('img').alt=item.name;tile.querySelector('a').setAttribute('aria-label',item.name);tile.querySelector('.drag-handle').setAttribute('aria-label','Переместить '+item.name);captionDialog.close();target.focus({preventScroll:true});show('Подпись сохранена.',false,target);}catch(error){show(error.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
  };
 }
+
+// Tour editing saves metadata without reloading or changing the page scroll.
+document.querySelectorAll('[data-tour]').forEach(button=>button.onclick=async()=>{
+ button.disabled=true;
+ try{const {openTourEditor}=await import('./tour-editor.js?v='+config.versions.tourEditor);await openTourEditor({projectId:config.project.id,item:config.project.items['3d'].find(item=>item.id===button.dataset.tour),versions:config.versions,api,show,onUpdate(project){config.project=project;}});}
+ catch(error){show(error.message,true,button);}finally{button.disabled=false;}
+});

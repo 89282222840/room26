@@ -14,7 +14,7 @@ async function select(index,historyMode='push'){
  dialog.querySelectorAll('[data-item]').forEach(b=>b.setAttribute('aria-current',String(b.dataset.item===item.id)));
  try{
   const module=config.type==='3d'?await import('./model.js?v='+config.versions.model):await import('./panorama.js?v='+config.versions.panorama);
-  view=await (config.type==='3d'?module.modelView:module.panoramaView)(container,item.source,{views:item.views,floorGrid:config.type==='3d',edgeCacheURL:item.edgeCache});status.hidden=true;if(gridButton)gridButton.hidden=!view.hasFloorGrid;
+  view=await (config.type==='3d'?module.modelView:module.panoramaView)(container,item.source,{views:item.views,floorGrid:config.type==='3d',edgeCacheURL:item.edgeCache,tour:item.tour});status.hidden=true;if(gridButton)gridButton.hidden=!view.hasFloorGrid;
  }catch(e){status.textContent='Не удалось открыть объект. '+e.message;const retry=document.createElement('button');retry.textContent='Повторить';retry.onclick=()=>select(active,'none');status.append(document.createElement('br'),retry);}
  finally{busy=false;arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }

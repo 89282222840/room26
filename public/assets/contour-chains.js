@@ -74,9 +74,9 @@ function prune(chains,spacing){
  }
  return chains.filter((_,i)=>!removed.has(i));
 }
-export function buildContourChains(geometry,matrix){
- const seed=rawEdges(geometry,30);let candidate=seed,completion=false;
- if(needsCompletion(seed,matrix)){const detailed=rawEdges(geometry,5);if(detailed.length/6<=220000){candidate=detailed;completion=true;}}
+export function buildContourChains(geometry,matrix,{angle=30,complete=true}={}){
+ const seed=rawEdges(geometry,angle);let candidate=seed,completion=false;
+ if(complete&&needsCompletion(seed,matrix)){const detailed=rawEdges(geometry,5);if(detailed.length/6<=220000){candidate=detailed;completion=true;}}
  const traced=traceChains(candidate,seed,matrix),chains=cleanFragments(traced,geometry,matrix,completion),nearChains=prune(chains,.03),farChains=prune(nearChains,.1),farSet=new Set(farChains),positions=[],indices=[];
  let segment=0;for(const chain of nearChains){for(let i=1;i<chain.points.length;i++){positions.push(...chain.points[i-1],...chain.points[i]);if(farSet.has(chain))indices.push(segment);segment++;}}
  const far=indices.length<segment?Uint32Array.from(indices):new Uint32Array();

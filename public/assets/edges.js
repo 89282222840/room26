@@ -1,10 +1,11 @@
 import * as THREE from './vendor/three/three.module.js';
-export const EDGE_VERSION=4;
+import { buildContourChains } from './contour-chains.js?v=5';
+export const EDGE_VERSION=5;
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 function signature(g){return `${g.getAttribute('position').count}/${g.index?.count||0}`;}
 function decode(buffer){
  const bytes=new Uint8Array(buffer),view=new DataView(buffer);
- if(bytes.length<12||decoder.decode(bytes.subarray(0,8))!=='R26E0004')throw Error('Edge cache header');
+ if(bytes.length<12||decoder.decode(bytes.subarray(0,8))!=='R26E0005')throw Error('Edge cache header');
  const size=view.getUint32(8,true);if(size>1048576||12+size>bytes.length)throw Error('Edge cache size');
  const header=JSON.parse(decoder.decode(bytes.subarray(12,12+size)));if(header.version!==EDGE_VERSION||!Array.isArray(header.entries)||header.entries.length>50000)throw Error('Edge cache version');
  let offset=(12+size+3)&~3;const result=new Map();
@@ -21,7 +22,7 @@ function decode(buffer){
 function encode(entries){
  const rows=entries.map(e=>({key:e.key,signature:e.signature,original:e.original,near:e.near.length/6,far:e.far.length}));
  const header=encoder.encode(JSON.stringify({version:EDGE_VERSION,entries:rows})),start=(12+header.length+3)&~3;
- const out=new Uint8Array(start+entries.reduce((sum,e)=>sum+e.near.byteLength+e.far.byteLength,0));out.set(encoder.encode('R26E0004'));new DataView(out.buffer).setUint32(8,header.length,true);out.set(header,12);
+ const out=new Uint8Array(start+entries.reduce((sum,e)=>sum+e.near.byteLength+e.far.byteLength,0));out.set(encoder.encode('R26E0005'));new DataView(out.buffer).setUint32(8,header.length,true);out.set(header,12);
  let offset=start;for(const entry of entries){out.set(new Uint8Array(entry.near.buffer,entry.near.byteOffset,entry.near.byteLength),offset);offset+=entry.near.byteLength;out.set(new Uint8Array(entry.far.buffer,entry.far.byteOffset,entry.far.byteLength),offset);offset+=entry.far.byteLength;}
  return new Blob([out],{type:'application/octet-stream'});
 }
@@ -36,10 +37,7 @@ export function installEdges(gltf,scene,buffer){
   if(!entry){
    const key='g'+entries.length,sig=signature(object.geometry),cached=stored.get(key);
    if(cached?.signature===sig){entry={...cached,key};reused++;}
-   else{
-    const edges=new THREE.EdgesGeometry(object.geometry,90),near=edges.getAttribute('position').array.slice();edges.dispose();
-    entry={key,signature:sig,original:near.length/6,near,far:new Uint32Array(),dense:false};
-   }
+   else entry={key,signature:sig,...buildContourChains(object.geometry,object.matrixWorld,{angle:90,complete:false})};
    entries.push(entry);byGeometry.set(object.geometry,entry);
   }
   if(!entry.near.length)continue;

@@ -43,10 +43,22 @@ The public GLB viewer offers a Grid toggle when original mesh/node names begin w
 
 ## Characteristic edges
 
-Models always render #666666 edges at the native WebGL 1-pixel width, without a toggle. The current comparison mode uses THREE.EdgesGeometry with a 90-degree threshold. Chain completion, geometric pruning and distance-dependent contour levels are disabled, so the test isolates the angle threshold. Surface polygonOffset factor 1 / units 1 prevents contour/surface depth conflicts; normal depth testing hides occluded lines. Static contours remain batched and models render on demand.
+Models always render #666666 edges at the native WebGL 1-pixel width. The crease threshold is 90 degrees. Connected-chain pruning is enabled at 3 cm in the close level and 10 cm in the distant level; lower-angle chain completion is disabled. Entire chains are removed together. Static contours remain batched and models render on demand. Surface polygonOffset factor 1 / units 1 keeps coplanar outlines visible with normal occlusion.
 
-New GLB uploads prepare an R26E0004 binary sidecar alongside previews. It stores the 90-degree contour coordinates; distant-level indices are empty. PHP validates and compresses the sidecar as `{item}-edges.bin`, served through revisioned media.php URLs. Existing model caches must be regenerated after changing the contour algorithm. Camera editors reuse current caches. Invalid or missing caches fall back to preparing edges from the original model. The source GLB is unchanged.
+New GLB uploads prepare an R26E0005 binary sidecar alongside previews. PHP validates, compresses and serves it through revisioned media.php URLs. Existing caches are regenerated when the contour algorithm changes. Camera editors reuse current caches. Invalid or missing caches fall back to preparation from the original GLB.
 
 ## Depth precision
 
 The renderer uses the standard depth buffer and adapts static-scene camera clip planes to the model scale and camera position. The far plane covers the model bounding sphere with margin. The near plane uses conservative distances to world-space model/object bounding boxes and the viewport diagonal field of view. It contracts immediately near geometry; small precision-only fluctuations are ignored. Floor-grid offsets receive additional far-plane margin. Existing camera presets are unchanged, and updates happen only when a frame is requested. Animated GLBs retain their previous conservative range because their bounds may move. This improves depth precision for close surfaces but cannot resolve exactly coincident or intersecting faces automatically.
+
+## Model walk-through tours
+
+Each GLB item may store `tour.points` (up to 500 unique six-hex IDs with world-space floor coordinates) and `tour.links` (up to 2000 unique undirected pairs). Authenticated CSRF-protected `save_tour` validates coordinates and links, checks source size and an optimistic `tour_revision`, then atomically saves the project under its existing write lock. Deleting a point in the editor removes its incident links. Renaming or reordering a model preserves its tour. No points are added automatically to existing projects.
+
+Admin model rows offer **Настроить тур**. Add points by clicking horizontal floor or stair-tread surfaces, drag points to move them, and connect points by successive clicks. Clicking an existing pair removes that link. Top view and an optional top clipping plane help access floors below ceilings. Save persists the tour without reloading the page.
+
+Public overview markers are horizontal circles of 0.30 m diameter, 0.16 m above their selected floor surface. Fill is black at 40% opacity (60% transparent); the opaque yellow ring is approximately 2 CSS pixels using shader derivatives. Geometry occludes markers and blocks clicks on hidden markers. Entering a point moves the eye 1.44 m above its marker (1.60 m above the selected surface) and holds the current central focus when possible. Points carry no visible captions.
+
+Walk mode hides circles and displays translucent directional arrows only for linked neighbors, including routes through closed doors. Moves preserve yaw, pitch and field of view. Intermediate stair points use their own floor elevation. No collision detection or automatic pathfinding is performed. Look-around uses mouse/touch dragging; wheel or pinch changes field of view. Continued zoom-out at the wide limit exits to an elevated overview while retaining current focus. The Overview button and Escape also exit. Transitions use a short smooth interpolation and soft dimming, or immediate movement when reduced motion is requested. Offscreen keyboard entry buttons expose numbered points without persistent visual labels.
+
+Tour animation runs only during transitions or interaction. Inactive models keep demand-driven rendering. Tours are omitted from upload/camera preview captures. All modules and Three.js dependencies remain local to the hosting.

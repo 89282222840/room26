@@ -30,11 +30,11 @@ function edge_cache_upload(string $target): void {
     }
     $length=strlen($raw);if($length>64*1024*1024)fail('Файл обводки слишком большой.');
     $prefix=substr($raw,0,12);
-    if(strlen($prefix)!==12||substr($prefix,0,8)!=='R26E0004')fail('Некорректный файл обводки.');
+    if(strlen($prefix)!==12||substr($prefix,0,8)!=='R26E0005')fail('Некорректный файл обводки.');
     $size=unpack('Vsize',substr($prefix,8,4))['size'];
     if($size<1||$size>1048576||$size+12>$length)fail('Некорректный заголовок обводки.');
     $header=json_decode(substr($raw,12,$size),true);
-    if(!is_array($header)||($header['version']??null)!==4||!isset($header['entries'])||!is_array($header['entries'])||count($header['entries'])>50000)fail('Некорректная версия обводки.');
+    if(!is_array($header)||($header['version']??null)!==5||!isset($header['entries'])||!is_array($header['entries'])||count($header['entries'])>50000)fail('Некорректная версия обводки.');
     $expected=(12+$size+3)&~3;$keys=[];
     foreach($header['entries'] as $entry){
         if(!is_array($entry)||!isset($entry['key'],$entry['signature'],$entry['near'],$entry['far'])||!is_string($entry['key'])||!preg_match('/^g[0-9]{1,6}$/D',$entry['key'])||isset($keys[$entry['key']])||!is_string($entry['signature'])||!preg_match('~^[0-9]{1,10}/[0-9]{1,10}$~D',$entry['signature'])||!is_int($entry['near'])||!is_int($entry['far'])||$entry['near']<0||$entry['far']<0||$entry['far']>$entry['near'])fail('Некорректные данные обводки.');
@@ -43,6 +43,22 @@ function edge_cache_upload(string $target): void {
     }
     if($expected!==$length)fail('Повреждённый файл обводки.');
     if(file_put_contents($target,function_exists('gzencode')?gzencode($raw,6):$raw)===false||!chmod($target,0600))fail('Не удалось сохранить обводку.',500);
+}
+function saved_tour(): array {
+    $raw=json_decode(text_field('tour',300000),true);
+    if(!is_array($raw)||!isset($raw['points'],$raw['links'])||!is_array($raw['points'])||!is_array($raw['links'])||count($raw['points'])>500||count($raw['links'])>2000)fail('Некорректные точки или связи тура.');
+    $points=[];$ids=[];
+    foreach($raw['points'] as $point){
+        if(!is_array($point)||!isset($point['id'],$point['position'])||!is_string($point['id'])||!preg_match('/^[a-f0-9]{6}$/D',$point['id'])||isset($ids[$point['id']])||!is_array($point['position'])||array_keys($point['position'])!==[0,1,2])fail('Некорректная точка тура.');
+        $position=[];foreach($point['position'] as $value){if((!is_int($value)&&!is_float($value))||!is_finite((float)$value)||abs($value)>1e10)fail('Некорректные координаты точки.');$position[]=(float)$value;}
+        $ids[$point['id']]=true;$points[]=['id'=>$point['id'],'position'=>$position];
+    }
+    $links=[];$seen=[];
+    foreach($raw['links'] as $link){
+        if(!is_array($link)||array_keys($link)!==[0,1]||!is_string($link[0])||!is_string($link[1])||$link[0]===$link[1]||!isset($ids[$link[0]],$ids[$link[1]]))fail('Связь должна соединять две существующие точки.');
+        sort($link,SORT_STRING);$key=implode('/',$link);if(isset($seen[$key]))fail('Повторяющаяся связь тура.');$seen[$key]=true;$links[]=$link;
+    }
+    return ['points'=>$points,'links'=>$links];
 }
 function saved_views(string $type): array {
     $raw=json_decode(text_field('views',5000),true);if(!is_array($raw))fail('Некорректные ракурсы.');$result=[];
@@ -128,7 +144,7 @@ try {
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
                 if($type==='photo'){$item['name']=$name?:$filename;$item['width']=$info[0];$item['height']=$info[1];$item['public_filename']=new_document_filename(photo_project($p),$item);}
-                if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=4;$item['edge_revision']=bin2hex(random_bytes(6));}
+                if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=5;$item['edge_revision']=bin2hex(random_bytes(6));}
                 $p['items'][$type][] = $item;
                 save_project($p);
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path);if(is_file($prefix.'-edges.bin'))unlink($prefix.'-edges.bin'); throw $error; }
@@ -139,7 +155,7 @@ try {
             try{
                 edge_cache_upload($temp);
                 if(!rename($temp,$prefix.'-edges.bin'))fail('Не удалось сохранить обводку.',500);
-                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=4;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
+                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=5;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
             }finally{if(is_file($temp))unlink($temp);}
         } elseif ($action === 'reorder') {
             $type = text_field('type',5); if (!in_array($type,['360','3d','doc','photo'],true)) fail('Неверный раздел.');
@@ -147,6 +163,12 @@ try {
             $items = $p['items'][$type]; $old = array_column($items,'id');
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
+        } elseif ($action === 'save_tour') {
+            $id=text_field('item',6);$item=find_item($p,'3d',$id);
+            if((string)$item['size']!==text_field('source_size',30))fail('Модель изменилась. Обновите страницу.',409);
+            if(($item['tour_revision']??'')!==text_field('tour_revision',40))fail('Тур уже изменён. Обновите страницу перед сохранением.',409);
+            $tour=saved_tour();
+            foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['tour']=$tour;$stored['tour_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
         } elseif ($action === 'save_views') {
             $type=text_field('type',5);if(!in_array($type,['360','3d'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);$views=saved_views($type);
