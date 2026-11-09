@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import { installEdges } from './edges.js?v=1';
+import { installEdges } from './edges.js?v=2';
 import { adaptiveDepth } from './depth.js?v=1';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
