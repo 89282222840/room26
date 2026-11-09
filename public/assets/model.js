@@ -93,6 +93,40 @@ export async function modelView(container, url, options = {}) {
     const radius = Math.max(size.length() / 2, .001);
     const floors=options.floorGrid?floorMeshes(gltf):[];
     let floorGrid=null;
+    // Keep characteristic edges lightweight for architectural models.
+    const meshes=[];gltf.scene.traverse(object=>{if(object.isMesh)meshes.push(object);});
+    const edgeCache=new Map(),mergedEdges=[];
+    const edgeMaterial=new THREE.LineBasicMaterial({color:0x666666,linewidth:1,depthTest:true,depthWrite:false,toneMapped:false});
+    const point=new THREE.Vector3(),instance=new THREE.Matrix4(),transform=new THREE.Matrix4();
+    let edgeCount=0;
+    for(const object of meshes){
+      let edges=edgeCache.get(object.geometry);
+      if(!edges){edges=new THREE.EdgesGeometry(object.geometry,30);edgeCache.set(object.geometry,edges);}
+      const positions=edges.getAttribute('position');if(!positions.count)continue;
+      const count=object.isInstancedMesh?object.count:1;
+      const merge=!gltf.animations.length&&!object.isSkinnedMesh&&!object.morphTargetInfluences;
+      let lineGeometry=null;
+      for(let i=0;i<count;i++){
+        if(merge){
+          transform.copy(object.matrixWorld);
+          if(object.isInstancedMesh){object.getMatrixAt(i,instance);transform.multiply(instance);}
+          for(let j=0;j<positions.count;j++){
+            point.fromBufferAttribute(positions,j).applyMatrix4(transform);mergedEdges.push(point.x,point.y,point.z);
+          }
+        }else{
+          if(!lineGeometry)lineGeometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions.array,3));
+          const lines=new THREE.LineSegments(lineGeometry,edgeMaterial);lines.name='ROOM26 characteristic edges';lines.renderOrder=1;
+          if(object.isInstancedMesh){object.getMatrixAt(i,lines.matrix);lines.matrixAutoUpdate=false;}
+          object.add(lines);edgeCount++;
+        }
+      }
+    }
+    for(const geometry of edgeCache.values())geometry.dispose();
+    if(mergedEdges.length){
+      const lines=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(mergedEdges,3)),edgeMaterial);
+      lines.name='ROOM26 characteristic edges';lines.renderOrder=1;scene.add(lines);edgeCount++;
+    }
+    if(!edgeCount)edgeMaterial.dispose();
     function setFloorGrid(visible){
       if(disposed)return false;
       if(visible && !floorGrid){floorGrid=makeFloorGrid(floors);if(floorGrid)scene.add(floorGrid);}

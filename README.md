@@ -40,3 +40,7 @@ Photos accept JPG, PNG, WebP, GIF and AVIF images. Browser-generated JPEG thumbn
 ## Metric floor grid
 
 The public GLB viewer offers a Grid toggle when original mesh/node names begin with the separate Russian word `Пол` (case-insensitive; space, underscore and hyphen separators are accepted). Names such as `Полка` and `Плитка на пол` do not match. Original GLB names are checked before loader sanitization. Black lines use a common world X/Z origin with 1 metre spacing on upward horizontal triangles, offset 0.15 m above the floor. Model transforms, including Revit foot-to-metre scaling, are applied before grid generation. Other model surfaces occlude the grid normally. This initial version uses a fixed offset and does not detect finish layers. Camera editors and generated previews exclude the grid.
+
+## Characteristic edges
+
+Models always render characteristic edges in #666666 at the standard WebGL 1-pixel width, without a toggle. Three.js EdgesGeometry uses a 30-degree threshold to omit coplanar triangulation and smooth surface facets. Lines use normal depth occlusion. Static edges are batched in world space to reduce draw calls; animated object transforms and instance transforms are retained.
