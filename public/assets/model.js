@@ -158,7 +158,7 @@ export async function modelView(container, url, options = {}) {
     function setCutHeight(height){
       cutHeight=Number.isFinite(height)?height:Infinity;renderer.localClippingEnabled=Number.isFinite(cutHeight);
       const planes=Number.isFinite(cutHeight)?[new THREE.Plane(new THREE.Vector3(0,-1,0),cutHeight)]:null;
-      scene.traverse(object=>{if(object.name.startsWith('ROOM26 tour'))return;for(const material of(Array.isArray(object.material)?object.material:[object.material]))if(material){material.clippingPlanes=planes;material.needsUpdate=true;}});
+      scene.traverse(object=>{if(object.name.startsWith('ROOM26 tour')||object.isLine&&Array.isArray(object.userData.link))return;for(const material of(Array.isArray(object.material)?object.material:[object.material]))if(material){material.clippingPlanes=planes;material.needsUpdate=true;}});
       render();
     }
     if(!options.preview&&(options.tourEditor||options.tour?.points?.length)){
