@@ -82,7 +82,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  }
  function beforeRender(){
   if(pendingHover){const position=pendingHover;pendingHover=null;hovered=markerAt(position.x,position.y);renderer.domElement.style.cursor=hovered?'pointer':'';}
-  for(const [id,marker]of markers){marker.visible=(editor||mode==='overview')&&point(id).position[1]<=getCutHeight()+.001;marker.material.uniforms.pixelRatio.value=renderer.getPixelRatio();marker.material.uniforms.selected.value=Number(id===selected);marker.material.uniforms.hovered.value=Number(id===hovered);}
+  for(const [id,marker]of markers){marker.visible=(editor||mode==='overview')&&(editor?point(id).position[1]:marker.position.y)<=getCutHeight()+.001;marker.material.uniforms.pixelRatio.value=renderer.getPixelRatio();marker.material.uniforms.selected.value=Number(id===selected);marker.material.uniforms.hovered.value=Number(id===hovered);}
   linkLines.visible=editor;for(const line of linkLines.children){const [a,b]=line.userData.link;line.visible=Math.max(point(a).position[1],point(b).position[1])<=getCutHeight()+.001;line.material.color.set(edgeKey(a,b)===selectedLink?.slice().sort().join('/')?0xffffff:0xffd900);}
   arrows.hidden=mode!=='walk'||Boolean(transition);returnButton.disabled=Boolean(transition);
   container.classList.toggle('tour-walking',mode!=='overview');
