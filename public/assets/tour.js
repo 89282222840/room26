@@ -49,16 +49,16 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  function readAngles(){camera.getWorldDirection(direction);yaw=Math.atan2(-direction.x,-direction.z);pitch=Math.asin(THREE.MathUtils.clamp(direction.y,-1,1));}
  function look(){pitch=THREE.MathUtils.clamp(pitch,-Math.PI*.472,Math.PI*.472);camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld(true);controls.target.copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()));}
  function begin({position,target=null,orientation=null,fov=camera.getEffectiveFOV(),zoom=1,done}){
-  pointers.clear();pinchDistance=0;press=null;controls.enabled=false;transition={start:performance.now(),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:850,from:camera.position.clone(),to:position.clone(),fromQuaternion:camera.quaternion.clone(),target:target?.clone()||null,orientation:orientation?.clone()||null,fromFov:camera.getEffectiveFOV(),fromDiagonal:diagonalFov(camera.getEffectiveFOV()),toDiagonal:mode==='enter'?DEFAULT_DIAGONAL:mode==='move'?walkDiagonal:null,dim:mode!=='move',fov,finalFov:fov,zoom,done};
+  pointers.clear();pinchDistance=0;press=null;controls.enabled=false;transition={start:performance.now(),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:850,from:camera.position.clone(),to:position.clone(),fromQuaternion:camera.quaternion.clone(),levelEntry:mode==='enter'&&!target,entryPitch:Math.asin(THREE.MathUtils.clamp(camera.getWorldDirection(new THREE.Vector3()).y,-1,1)),entryYaw:new THREE.Euler().setFromQuaternion(orientation||camera.quaternion,'YXZ').y,target:target?.clone()||null,orientation:orientation?.clone()||null,fromFov:camera.getEffectiveFOV(),fromDiagonal:diagonalFov(camera.getEffectiveFOV()),toDiagonal:mode==='enter'?DEFAULT_DIAGONAL:mode==='move'?walkDiagonal:null,dim:mode!=='move',fov,finalFov:fov,zoom,done};
   if(target){const dummy=new THREE.PerspectiveCamera();dummy.position.copy(position);dummy.lookAt(target);transition.orientation=dummy.quaternion.clone();}
   shade.hidden=!transition.dim;emit();
  }
  function enter(id){if(editor||transition||!point(id))return false;
   if(mode==='walk')return move(id);
   controls.enableDamping=false;controls.update();overview={...getView(),effectiveFov:camera.getEffectiveFOV(),damping:true};
-  const target=focus(),destination=eye(point(id));if(destination.distanceTo(target)<.25)target.copy(destination).add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(2));
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion),heading=Math.atan2(-right.z,right.x),orientation=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,heading,0,'YXZ')),destination=eye(point(id));
   walkDiagonal=DEFAULT_DIAGONAL;mode='enter';current=id;returnButton.hidden=false;keyboardPoints.hidden=true;
-  begin({position:destination,target,done(){mode='walk';readAngles();look();rebuildArrows();renderer.domElement.focus({preventScroll:true});emit();}});return true;
+  begin({position:destination,orientation,done(){mode='walk';readAngles();look();rebuildArrows();renderer.domElement.focus({preventScroll:true});emit();}});return true;
  }
  function move(id){if(mode!=='walk'||transition||!neighbors(current).includes(id)||!point(id))return false;
   const orientation=camera.quaternion.clone();mode='move';arrows.hidden=true;
@@ -71,7 +71,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
   mode='exit';arrows.hidden=true;begin({position:destination,target,fov:saved.effectiveFov||saved.fov,done(){camera.fov=saved.fov;camera.zoom=saved.zoom||1;camera.updateProjectionMatrix();controls.target.copy(target);controls.enableDamping=true;controls.enabled=true;controls.update();mode='overview';current=null;overview=null;exitPressure=0;returnButton.hidden=true;keyboardPoints.hidden=false;renderer.domElement.focus({preventScroll:true});emit();}});return true;
  }
  function update(now){if(!transition)return false;const t=transition.duration?Math.min(1,(now-transition.start)/transition.duration):1,k=t*t*(3-2*t),job=transition;camera.position.lerpVectors(job.from,job.to,k);camera.zoom=1;camera.fov=job.toDiagonal===null?THREE.MathUtils.lerp(job.fromFov,job.fov,k):verticalFov(THREE.MathUtils.lerp(job.fromDiagonal,job.toDiagonal,k));camera.updateProjectionMatrix();
-  if(job.target){if(camera.position.distanceToSquared(job.target)>.0001)camera.lookAt(job.target);}else camera.quaternion.copy(job.orientation||job.fromQuaternion);
+  if(job.target){if(camera.position.distanceToSquared(job.target)>.0001)camera.lookAt(job.target);}else if(job.levelEntry)camera.rotation.set(THREE.MathUtils.lerp(job.entryPitch,0,k),job.entryYaw,0,'YXZ');else camera.quaternion.copy(job.orientation||job.fromQuaternion);
   shade.style.opacity=job.dim?String(Math.sin(Math.PI*t)*.38):'0';camera.updateMatrixWorld(true);
   if(t>=1){transition=null;shade.hidden=true;job.done();return false;}return true;
  }
