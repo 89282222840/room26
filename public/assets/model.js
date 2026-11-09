@@ -46,10 +46,10 @@ function makeFloorGrid(meshes) {
       void main(){
         vec2 distanceToLine=abs(fract(gridPosition+0.5)-0.5);
         vec2 pixelWidth=max(fwidth(gridPosition),vec2(0.0001));
-        vec2 coverage=1.0-smoothstep(vec2(0.0075),vec2(0.0075)+pixelWidth,distanceToLine);
+        vec2 coverage=1.0-smoothstep(vec2(0.005),vec2(0.005)+pixelWidth,distanceToLine);
         float alpha=max(coverage.x,coverage.y);
         if(alpha<0.02)discard;
-        gl_FragColor=vec4(0.0,0.0,0.0,alpha);
+        gl_FragColor=vec4(0.0,0.0,0.0,alpha*0.7);
       }`
   });
   const overlay=new THREE.Mesh(geometry,material);overlay.name='ROOM26 metric floor grid';overlay.visible=false;
