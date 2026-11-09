@@ -1,5 +1,6 @@
 import * as THREE from './vendor/three/three.module.js';
 import { installEdges } from './edges.js?v=1';
+import { adaptiveDepth } from './depth.js?v=1';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -93,6 +94,13 @@ export async function modelView(container, url, options = {}) {
     const center=box.getCenter(new THREE.Vector3()), size=box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, .001);
     const floors=options.floorGrid?floorMeshes(gltf):[];
+    const depthBoxes=[];
+    gltf.scene.traverse(object=>{
+      if(!object.isMesh)return;
+      if(object.isInstancedMesh){object.computeBoundingBox();depthBoxes.push(object.boundingBox.clone().applyMatrix4(object.matrixWorld));}
+      else{if(!object.geometry.boundingBox)object.geometry.computeBoundingBox();depthBoxes.push(object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld));}
+    });
+    const updateDepth=adaptiveDepth(box,depthBoxes,radius,{animated:gltf.animations.length>0,floorGrid:floors.length>0});
     let floorGrid=null;
     let cachedEdges=null;
     if(options.edgeCacheURL){try{const response=await fetch(options.edgeCacheURL);if(response.ok){cachedEdges=await response.arrayBuffer();const bytes=new Uint8Array(cachedEdges);if(bytes[0]===31&&bytes[1]===139){cachedEdges=await new Response(new Blob([cachedEdges]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();}}}catch(error){/* Original GLB remains usable without a sidecar. */}}
@@ -100,6 +108,7 @@ export async function modelView(container, url, options = {}) {
     edges=installEdges(gltf,scene,cachedEdges);scene.updateMatrixWorld(true);
     function render(){
       if(disposed)return;
+      if(options.adaptiveDepth!==false)updateDepth(camera);
       if(mixer)scene.updateMatrixWorld(true);
       edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
       renderer.render(scene,camera);renderedFrames++;
@@ -154,6 +163,6 @@ export async function modelView(container, url, options = {}) {
       }
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines})};
+    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }
