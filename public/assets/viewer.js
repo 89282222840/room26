@@ -3,7 +3,7 @@ const container=document.querySelector('#viewer'),status=document.querySelector(
 const gridButton=document.querySelector('#floor-grid');
 let active=config.items.findIndex(i=>i.id===config.current),view=null,busy=false;
 const arrows=[document.querySelector('#previous'),document.querySelector('#next')].filter(Boolean);
-async function select(index,historyMode='push'){
+async function select(index,historyMode='push',arrival=null){
  if(busy)return;busy=true;if(gridButton){gridButton.hidden=true;gridButton.setAttribute('aria-pressed','false');}arrows.forEach(b=>b.disabled=true);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=true);
  active=(index+config.items.length)%config.items.length;const item=config.items[active];status.hidden=false;status.textContent='Загрузка…';title.textContent=item.name;
  view?.dispose?.();view?.destroy?.();view=null;container.replaceChildren();
@@ -14,7 +14,7 @@ async function select(index,historyMode='push'){
  dialog.querySelectorAll('[data-item]').forEach(b=>b.setAttribute('aria-current',String(b.dataset.item===item.id)));
  try{
   const module=config.type==='3d'?await import('./model.js?v='+config.versions.model):await import('./panorama.js?v='+config.versions.panorama);
-  view=await (config.type==='3d'?module.modelView:module.panoramaView)(container,item.source,{views:item.views,floorGrid:config.type==='3d',edgeCacheURL:item.edgeCache,tour:item.tour});status.hidden=true;if(gridButton)gridButton.hidden=!view.hasFloorGrid;
+  view=await (config.type==='3d'?module.modelView:module.panoramaView)(container,item.source,{view:arrival,views:arrival?null:item.views,floorGrid:config.type==='3d',edgeCacheURL:item.edgeCache,tour:item.tour});status.hidden=true;if(config.type==='360')for(const point of config.panoramaTour?.points?.[item.id]||[]){const target=config.items.findIndex(i=>i.id===point.target);if(target<0)continue;view.raw.addHotSpot({id:point.id,yaw:point.yaw,pitch:point.pitch,cssClass:'pano-tour-hotspot',createTooltipFunc:element=>{element.setAttribute('role','button');element.setAttribute('tabindex','0');element.setAttribute('aria-label','Перейти к панораме '+config.items[target].name);element.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select(target,'push',point.view);}};},clickHandlerFunc:()=>select(target,'push',point.view)});}if(gridButton)gridButton.hidden=!view.hasFloorGrid;
  }catch(e){status.textContent='Не удалось открыть объект. '+e.message;const retry=document.createElement('button');retry.textContent='Повторить';retry.onclick=()=>select(active,'none');status.append(document.createElement('br'),retry);}
  finally{busy=false;arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }

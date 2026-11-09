@@ -17,7 +17,7 @@ export async function panoramaView(container,url,options={}){
  function setView(state=defaultView()){raw.stopMovement();raw.lookAt(state.pitch,state.yaw,state.hfov,false);}
  function resize(){if(disposed)return;raw.resize();const next=profile();if(options.views&&next!==mode){mode=next;setView(options.views[next]||defaultView());}}
  return new Promise((resolve,reject)=>{
-  raw.on('load',()=>{observer=new ResizeObserver(resize);observer.observe(container);resolve({dispose,getView,setView,resize,getAutoView:defaultView,zoomBy:factor=>raw.setHfov(Math.max(10,Math.min(120,raw.getHfov()/factor)),false)});});
+  raw.on('load',()=>{observer=new ResizeObserver(resize);observer.observe(container);resolve({raw,dispose,getView,setView,resize,getAutoView:defaultView,zoomBy:factor=>raw.setHfov(Math.max(10,Math.min(120,raw.getHfov()/factor)),false)});});
   raw.on('error',message=>{dispose();reject(Error(message));});
  });
 }

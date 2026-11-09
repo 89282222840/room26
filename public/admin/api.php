@@ -60,6 +60,22 @@ function saved_tour(): array {
     }
     return ['points'=>$points,'links'=>$links];
 }
+function saved_panorama_tour(array $p): array {
+    $raw=json_decode(text_field('tour',400000),true);
+    if(!is_array($raw)||!isset($raw['points'])||!is_array($raw['points'])||count($raw['points'])>1000)fail('Некорректный тур.');
+    $known=array_column($p['items']['360'],null,'id');$start=$raw['start']??null;
+    if($start!==null&&(!is_string($start)||!isset($known[$start])))fail('Стартовая панорама не найдена.');
+    $points=[];$ids=[];$total=0;
+    $num=function($v,float $min,float $max):float{if((!is_int($v)&&!is_float($v))||!is_finite((float)$v)||$v<$min||$v>$max)fail('Некорректный ракурс точки.');return(float)$v;};
+    foreach($raw['points'] as $source=>$list){
+        if(!isset($known[$source])||!is_array($list)||count($list)>500)fail('Панорама или точки не найдены.');
+        $out=[];foreach($list as $point){
+            if(++$total>5000||!is_array($point)||!isset($point['id'],$point['target'],$point['view'])||!is_string($point['id'])||!valid_id($point['id'])||isset($ids[$point['id']])||!is_string($point['target'])||(string)$source===$point['target']||!isset($known[$point['target']])||!is_array($point['view']))fail('Некорректный переход.');
+            $ids[$point['id']]=true;$v=$point['view'];
+            $out[]=['id'=>$point['id'],'target'=>$point['target'],'yaw'=>$num($point['yaw']??null,-180,180),'pitch'=>$num($point['pitch']??null,-90,90),'view'=>['yaw'=>$num($v['yaw']??null,-3600,3600),'pitch'=>$num($v['pitch']??null,-90,90),'hfov'=>$num($v['hfov']??null,10,120)]];
+        }$points[$source]=$out;
+    }return ['start'=>$start,'points'=>(object)$points];
+}
 function saved_views(string $type): array {
     $raw=json_decode(text_field('views',5000),true);if(!is_array($raw))fail('Некорректные ракурсы.');$result=[];
     foreach(['mobile','desktop'] as $profile){
@@ -103,6 +119,8 @@ try {
             remove_tree(project_path($p['id']));
             flock($lock, LOCK_UN); fclose($lock); $lock = null;
             json_out(['deleted'=>true]);
+        } elseif ($action === 'get_project') {
+            // Authenticated refresh before opening the tour editor.
         } elseif ($action === 'save') {
             $name = text_field('name', 200); if ($name === '') fail('Введите название проекта.');
             $description = text_field('description', 48);
@@ -163,6 +181,25 @@ try {
             $items = $p['items'][$type]; $old = array_column($items,'id');
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
+        } elseif ($action === 'replace_panorama') {
+            $id=text_field('item',6);$old=find_item($p,'360',$id);$file=uploaded('file');$info=@getimagesize($file['tmp_name']);
+            if(!$info||!in_array($info[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true)||abs($info[0]/$info[1]-2)>.1)fail('Нужна панорама JPG, PNG или WebP с соотношением 2:1.');
+            if(($old['source_version']??'')!==text_field('source_version',40))fail('Панорама уже заменена. Обновите страницу.',409);
+            $ext=[IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png',IMAGETYPE_WEBP=>'webp'][$info[2]];$version=bin2hex(random_bytes(6));$folder=project_path($p['id']).'/360/';$base=$id.'-'.$version;$created=[];$committed=false;
+            try{
+                $source=$folder.$base.'.'.$ext;$created[]=$source;if(!move_uploaded_file($file['tmp_name'],$source)||!chmod($source,0644))fail('Не удалось сохранить панораму.',500);
+                foreach(['thumb'=>[400,200],'og'=>[1200,630]] as $kind=>$dimensions){$target=$folder.$base.'-'.$kind.'.jpg';$created[]=$target;jpeg_upload($kind,$target,$dimensions[0],$dimensions[1]);}
+                foreach($p['items']['360'] as &$item)if($item['id']===$id){$item['size']=(int)$file['size'];$item['mime']=$info['mime'];$item['extension']=$ext;$item['source_file']=$base.'.'.$ext;$item['source_version']=$version;$item['preview_file']=$base;$item['preview_version']=$version;$item['replaced']=date(DATE_ATOM);}unset($item);
+                save_project($p);$committed=true;
+                $oldBase=$old['preview_file']??$id;
+                foreach([$folder.($old['source_file']??($id.'.'.$old['extension'])),$folder.$oldBase.'-thumb.jpg',$folder.$oldBase.'-og.jpg'] as $path)if(is_file($path))unlink($path);
+            }finally{if(!$committed)foreach($created as $path)if(is_file($path))unlink($path);}
+        } elseif ($action === 'save_panorama_tour') {
+            $request=text_field('request_id',40);if(!preg_match('/^[a-f0-9]{24}$/D',$request))fail('Некорректный запрос.');
+            if(($p['panorama_tour_request']??'')!==$request){
+                if(($p['panorama_tour_revision']??'')!==text_field('revision',40))fail('Тур изменён в другой вкладке. Обновите страницу.',409);
+                $p['panorama_tour']=saved_panorama_tour($p);$p['panorama_tour_revision']=bin2hex(random_bytes(6));$p['panorama_tour_request']=$request;save_project($p);
+            }
         } elseif ($action === 'save_tour') {
             $id=text_field('item',6);$item=find_item($p,'3d',$id);
             if((string)$item['size']!==text_field('source_size',30))fail('Модель изменилась. Обновите страницу.',409);
@@ -208,7 +245,13 @@ try {
             $type=text_field('type',5);if(!in_array($type,['360','3d','doc','photo'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);
             $p['items'][$type]=array_values(array_filter($p['items'][$type],function($item)use($id){return $item['id']!==$id;}));
-            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-edges.bin')?:[]) as $path)unlink($path);
+            if($type==='360'&&isset($p['panorama_tour'])){
+                unset($p['panorama_tour']['points'][$id]);
+                foreach($p['panorama_tour']['points'] as &$list)$list=array_values(array_filter($list,function($point)use($id){return $point['target']!==$id;}));unset($list);
+                if(($p['panorama_tour']['start']??null)===$id)$p['panorama_tour']['start']=null;
+                $p['panorama_tour_revision']=bin2hex(random_bytes(6));unset($p['panorama_tour_request']);
+            }
+            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-*.png')?:[],glob($prefix.'-*.webp')?:[],glob($prefix.'-edges.bin')?:[]) as $path)unlink($path);
         } else fail('Неизвестное действие.');
     }
     flock($lock,LOCK_UN);fclose($lock);$lock=null;
