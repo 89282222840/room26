@@ -30,11 +30,11 @@ function edge_cache_upload(string $target): void {
     }
     $length=strlen($raw);if($length>64*1024*1024)fail('Файл обводки слишком большой.');
     $prefix=substr($raw,0,12);
-    if(strlen($prefix)!==12||substr($prefix,0,8)!=='R26E0002')fail('Некорректный файл обводки.');
+    if(strlen($prefix)!==12||substr($prefix,0,8)!=='R26E0003')fail('Некорректный файл обводки.');
     $size=unpack('Vsize',substr($prefix,8,4))['size'];
     if($size<1||$size>1048576||$size+12>$length)fail('Некорректный заголовок обводки.');
     $header=json_decode(substr($raw,12,$size),true);
-    if(!is_array($header)||($header['version']??null)!==2||!isset($header['entries'])||!is_array($header['entries'])||count($header['entries'])>50000)fail('Некорректная версия обводки.');
+    if(!is_array($header)||($header['version']??null)!==3||!isset($header['entries'])||!is_array($header['entries'])||count($header['entries'])>50000)fail('Некорректная версия обводки.');
     $expected=(12+$size+3)&~3;$keys=[];
     foreach($header['entries'] as $entry){
         if(!is_array($entry)||!isset($entry['key'],$entry['signature'],$entry['near'],$entry['far'])||!is_string($entry['key'])||!preg_match('/^g[0-9]{1,6}$/D',$entry['key'])||isset($keys[$entry['key']])||!is_string($entry['signature'])||!preg_match('~^[0-9]{1,10}/[0-9]{1,10}$~D',$entry['signature'])||!is_int($entry['near'])||!is_int($entry['far'])||$entry['near']<0||$entry['far']<0||$entry['far']>$entry['near'])fail('Некорректные данные обводки.');
@@ -128,7 +128,7 @@ try {
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
                 if($type==='photo'){$item['name']=$name?:$filename;$item['width']=$info[0];$item['height']=$info[1];$item['public_filename']=new_document_filename(photo_project($p),$item);}
-                if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=2;$item['edge_revision']=bin2hex(random_bytes(6));}
+                if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=3;$item['edge_revision']=bin2hex(random_bytes(6));}
                 $p['items'][$type][] = $item;
                 save_project($p);
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path);if(is_file($prefix.'-edges.bin'))unlink($prefix.'-edges.bin'); throw $error; }
@@ -139,7 +139,7 @@ try {
             try{
                 edge_cache_upload($temp);
                 if(!rename($temp,$prefix.'-edges.bin'))fail('Не удалось сохранить обводку.',500);
-                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=2;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
+                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=3;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
             }finally{if(is_file($temp))unlink($temp);}
         } elseif ($action === 'reorder') {
             $type = text_field('type',5); if (!in_array($type,['360','3d','doc','photo'],true)) fail('Неверный раздел.');

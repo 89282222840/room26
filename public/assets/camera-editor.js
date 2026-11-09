@@ -34,7 +34,7 @@ export async function openCameraEditor(options){
  try{
   const module=options.type==='3d'?await import('./model.js?v='+options.versions.model):await import('./panorama.js?v='+options.versions.panorama);
   if(token!==epoch||!dialog.open)return;
-  const instance=await(options.type==='3d'?module.modelView:module.panoramaView)(surface,'/media.php?'+new URLSearchParams({p:options.projectId,type:options.type,item:options.item.id,kind:'source'}),{editor:true,view:drafts.mobile,edgeCacheURL:options.item.edge_version===2?'/media.php?'+new URLSearchParams({p:options.projectId,type:'3d',item:options.item.id,kind:'edges',v:options.item.edge_revision}):null});
+  const instance=await(options.type==='3d'?module.modelView:module.panoramaView)(surface,'/media.php?'+new URLSearchParams({p:options.projectId,type:options.type,item:options.item.id,kind:'source'}),{editor:true,view:drafts.mobile,edgeCacheURL:options.item.edge_version===3?'/media.php?'+new URLSearchParams({p:options.projectId,type:'3d',item:options.item.id,kind:'edges',v:options.item.edge_revision}):null});
   if(token!==epoch||!dialog.open){instance.dispose();return;}
   view=instance;status.hidden=true;enable(true);fitFrame();view.resize();
  }catch(error){if(token!==epoch)return;status.textContent='Не удалось открыть объект. '+error.message;throw error;}

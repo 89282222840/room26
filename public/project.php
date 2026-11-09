@@ -28,7 +28,7 @@ try {
         $current=$id!==''?find_item($p,$type,$id):start_item($p,$type);
         if(!$current)fail('В этом разделе пока нет объектов.',404);
         if($id!=='')$canonical.='?item='.$current['id'];
-        foreach($p['items'][$type] as $item)$items[]=['id'=>$item['id'],'name'=>$item['name'],'url'=>item_url($p,$type,$item),'thumb'=>asset_url($p,$type,$item,'thumb'),'og'=>asset_url($p,$type,$item,'og'),'source'=>asset_url($p,$type,$item,'source'),'views'=>$item['views']??null,'edgeCache'=>$type==='3d'&&($item['edge_version']??0)===2?asset_url($p,'3d',$item,'edges'):null];
+        foreach($p['items'][$type] as $item)$items[]=['id'=>$item['id'],'name'=>$item['name'],'url'=>item_url($p,$type,$item),'thumb'=>asset_url($p,$type,$item,'thumb'),'og'=>asset_url($p,$type,$item,'og'),'source'=>asset_url($p,$type,$item,'source'),'views'=>$item['views']??null,'edgeCache'=>$type==='3d'&&($item['edge_version']??0)===3?asset_url($p,'3d',$item,'edges'):null];
     }
     if(substr($path,-1)!=='/') {header('Location: '.$canonical,true,301);exit;}
     $title=$current?$current['name']:($type==='doc'?'Документы — '.$p['name']:($type==='photo'?'Фото — '.$p['name']:$p['name']));

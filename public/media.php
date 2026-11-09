@@ -7,7 +7,7 @@ try {
     $type=$_GET['type'];$kind=$_GET['kind'];
     if(!in_array($type,['360','3d','photo'],true)||!in_array($kind,['thumb','og','source','edges'],true))fail('Файл не найден.',404);
     $p=project($_GET['p']);$item=find_item($p,$type,$_GET['item']);
-    if($kind==='edges'&&($type!=='3d'||($item['edge_version']??0)!==2))fail('Файл не найден.',404);
+    if($kind==='edges'&&($type!=='3d'||($item['edge_version']??0)!==3))fail('Файл не найден.',404);
     $extension=$item['extension'];if(!in_array($extension,['jpg','png','webp','gif','avif','glb'],true))fail('Файл не найден.',404);
     $filename=$item['id'].($kind==='edges'?'-edges.bin':($kind==='source'?'.'.$extension:'-'.$kind.'.jpg'));
     $source=project_path($p['id']).'/'.$type.'/'.$filename;

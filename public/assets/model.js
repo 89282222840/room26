@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import { installEdges } from './edges.js?v=2';
+import { installEdges } from './edges.js?v=3';
 import { adaptiveDepth } from './depth.js?v=1';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
@@ -89,6 +89,10 @@ export async function modelView(container, url, options = {}) {
   try {
     const gltf = await loader.loadAsync(url);
     scene.add(gltf.scene);gltf.scene.updateMatrixWorld(true);
+    // Separate coplanar surface depth from its outline without moving geometry.
+    gltf.scene.traverse(object=>{if(object.isMesh)for(const material of(Array.isArray(object.material)?object.material:[object.material])){
+      if(material&&!material.polygonOffset){material.polygonOffset=true;material.polygonOffsetFactor=1;material.polygonOffsetUnits=1;}
+    }});
     const box = new THREE.Box3().setFromObject(gltf.scene);
     if(box.isEmpty())throw new Error('В модели нет видимой геометрии.');
     const center=box.getCenter(new THREE.Vector3()), size=box.getSize(new THREE.Vector3());
