@@ -4,6 +4,7 @@ const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
  const verticalFov=diagonal=>THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(diagonal/2))/Math.sqrt(1+camera.aspect*camera.aspect)));
  const diagonalFov=vertical=>THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(vertical/2))*Math.sqrt(1+camera.aspect*camera.aspect)));
+ let hovered=null,pendingHover=null;
  let walkDiagonal=DEFAULT_DIAGONAL;
  let points=copy(data?.points||[]),links=copy(data?.links||[]),mode='overview',editMode='select',selected=null,selectedLink=null,anchor=null,current=null,transition=null,overview=null,yaw=0,pitch=0,exitPressure=0,disposed=false;
  const group=new THREE.Group();group.name='ROOM26 tour';scene.add(group);
@@ -17,8 +18,8 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  const keyboardPoints=document.createElement('div');keyboardPoints.className='tour-keyboard-points';overlay.append(keyboardPoints);
  container.append(overlay);
  const circle=new THREE.PlaneGeometry(.3,.3);
- const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{pixelRatio:{value:renderer.getPixelRatio()},selected:{value:0}},vertexShader:'varying vec2 markerUV;void main(){markerUV=uv*2.0-1.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:`varying vec2 markerUV;uniform float pixelRatio;uniform float selected;
- void main(){float d=length(markerUV);float pixel=max(length(vec2(dFdx(d),dFdy(d))),0.0001);float coverage=1.0-smoothstep(1.0-pixel*.5,1.0+pixel*.5,d);if(coverage<.01)discard;float ring=smoothstep(1.0-pixel*(2.0*pixelRatio+1.0),1.0-pixel*2.0*pixelRatio,d);vec3 color=mix(vec3(0.0),mix(vec3(1.0,.85,0.0),vec3(1.0),selected),ring);float alpha=mix(.4,1.0,ring)*coverage;gl_FragColor=vec4(color,alpha);}`});
+ const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{pixelRatio:{value:renderer.getPixelRatio()},selected:{value:0},hovered:{value:0}},vertexShader:'varying vec2 markerUV;void main(){markerUV=uv*2.0-1.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:`varying vec2 markerUV;uniform float pixelRatio;uniform float selected;uniform float hovered;
+ void main(){float d=length(markerUV);float pixel=max(length(vec2(dFdx(d),dFdy(d))),0.0001);float coverage=1.0-smoothstep(1.0-pixel*.5,1.0+pixel*.5,d);if(coverage<.01)discard;float ring=smoothstep(1.0-pixel*(2.0*pixelRatio+1.0),1.0-pixel*2.0*pixelRatio,d);vec3 color=mix(vec3(0.0),mix(vec3(1.0,.85,0.0),vec3(1.0),selected),ring);float alpha=mix(mix(.3,1.0,hovered),1.0,ring)*coverage;gl_FragColor=vec4(color,alpha);}`});
  function point(id){return points.find(p=>p.id===id);}
  function base(p){return new THREE.Vector3().fromArray(p.position);}
  function eye(p){return base(p).add(new THREE.Vector3(0,MARKER_HEIGHT+EYE_HEIGHT,0));}
@@ -41,15 +42,19 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  function surface(clientX,clientY){setRay(clientX,clientY);for(const hit of ray.intersectObjects(surfaces,false)){if(hit.point.y>getCutHeight()+.0001||!hit.face)continue;normal.copy(hit.face.normal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));if(normal.y>.7)return hit;}return null;}
  function setRay(x,y){const rect=renderer.domElement.getBoundingClientRect();pointer.set((x-rect.left)/rect.width*2-1,-(y-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);}
  function markerAt(x,y){
-  setRay(x,y);const hit=ray.intersectObjects([...markers.values()].filter(m=>m.visible),false).find(h=>!h.uv||(h.uv.x-.5)**2+(h.uv.y-.5)**2<=.25);if(!hit)return null;
-  const blocked=ray.intersectObjects(surfaces,false).some(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return h.point.y<=getCutHeight()+.001&&h.distance<hit.distance-.002&&m?.depthWrite!==false&&m?.opacity!==0;});
-  return blocked?null:hit.object.userData.point;
+  setRay(x,y);const hits=[],position=new THREE.Vector3(),plane=new THREE.Plane(),hitRadius=editor ? .15 : .3;
+  for(const [id,marker]of markers){if(!marker.visible)continue;plane.set(new THREE.Vector3(0,1,0),-marker.position.y);const hit=ray.ray.intersectPlane(plane,position);if(!hit)continue;const offset=(position.x-marker.position.x)**2+(position.z-marker.position.z)**2;if(offset<=hitRadius*hitRadius)hits.push({id,distance:ray.ray.origin.distanceTo(position),offset});}
+  if(!hits.length)return null;hits.sort((a,b)=>a.distance-b.distance||a.offset-b.offset);
+  const blockers=ray.intersectObjects(surfaces,false).filter(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return h.point.y<=getCutHeight()+.001&&m?.depthWrite!==false&&m?.opacity!==0;});
+  return hits.find(hit=>!blockers.some(h=>h.distance<hit.distance-.002))?.id||null;
  }
+ function clearHover(){pendingHover=null;if(hovered!==null){hovered=null;requestRender();}renderer.domElement.style.cursor='';}
+
  function focus(){ray.setFromCamera(new THREE.Vector2(0,0),camera);const hit=ray.intersectObjects(surfaces,false).find(h=>h.point.y<=getCutHeight()+.001&&h.distance>.15);return hit?.point.clone()||camera.position.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(Math.max(2,radius*.4)));}
  function readAngles(){camera.getWorldDirection(direction);yaw=Math.atan2(-direction.x,-direction.z);pitch=Math.asin(THREE.MathUtils.clamp(direction.y,-1,1));}
  function look(){pitch=THREE.MathUtils.clamp(pitch,-Math.PI*.472,Math.PI*.472);camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld(true);controls.target.copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()));}
  function begin({position,target=null,orientation=null,fov=camera.getEffectiveFOV(),zoom=1,done}){
-  pointers.clear();pinchDistance=0;press=null;controls.enabled=false;transition={start:performance.now(),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:850,from:camera.position.clone(),to:position.clone(),fromQuaternion:camera.quaternion.clone(),levelEntry:mode==='enter'&&!target,entryPitch:Math.asin(THREE.MathUtils.clamp(camera.getWorldDirection(new THREE.Vector3()).y,-1,1)),entryYaw:new THREE.Euler().setFromQuaternion(orientation||camera.quaternion,'YXZ').y,target:target?.clone()||null,orientation:orientation?.clone()||null,fromFov:camera.getEffectiveFOV(),fromDiagonal:diagonalFov(camera.getEffectiveFOV()),toDiagonal:mode==='enter'?DEFAULT_DIAGONAL:mode==='move'?walkDiagonal:null,dim:mode!=='move',fov,finalFov:fov,zoom,done};
+  clearHover();pointers.clear();pinchDistance=0;press=null;controls.enabled=false;transition={start:performance.now(),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:850,from:camera.position.clone(),to:position.clone(),fromQuaternion:camera.quaternion.clone(),levelEntry:mode==='enter'&&!target,entryPitch:Math.asin(THREE.MathUtils.clamp(camera.getWorldDirection(new THREE.Vector3()).y,-1,1)),entryYaw:new THREE.Euler().setFromQuaternion(orientation||camera.quaternion,'YXZ').y,target:target?.clone()||null,orientation:orientation?.clone()||null,fromFov:camera.getEffectiveFOV(),fromDiagonal:diagonalFov(camera.getEffectiveFOV()),toDiagonal:mode==='enter'?DEFAULT_DIAGONAL:mode==='move'?walkDiagonal:null,dim:mode!=='move',fov,finalFov:fov,zoom,done};
   if(target){const dummy=new THREE.PerspectiveCamera();dummy.position.copy(position);dummy.lookAt(target);transition.orientation=dummy.quaternion.clone();}
   shade.hidden=!transition.dim;emit();
  }
@@ -76,7 +81,8 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
   if(t>=1){transition=null;shade.hidden=true;job.done();return false;}return true;
  }
  function beforeRender(){
-  for(const [id,marker]of markers){marker.visible=(editor||mode==='overview')&&point(id).position[1]<=getCutHeight()+.001;marker.material.uniforms.pixelRatio.value=renderer.getPixelRatio();marker.material.uniforms.selected.value=Number(id===selected);}
+  if(pendingHover){const position=pendingHover;pendingHover=null;hovered=markerAt(position.x,position.y);renderer.domElement.style.cursor=hovered?'pointer':'';}
+  for(const [id,marker]of markers){marker.visible=(editor||mode==='overview')&&point(id).position[1]<=getCutHeight()+.001;marker.material.uniforms.pixelRatio.value=renderer.getPixelRatio();marker.material.uniforms.selected.value=Number(id===selected);marker.material.uniforms.hovered.value=Number(id===hovered);}
   linkLines.visible=editor;for(const line of linkLines.children){const [a,b]=line.userData.link;line.visible=Math.max(point(a).position[1],point(b).position[1])<=getCutHeight()+.001;line.material.color.set(edgeKey(a,b)===selectedLink?.slice().sort().join('/')?0xffffff:0xffd900);}
   arrows.hidden=mode!=='walk'||Boolean(transition);returnButton.disabled=Boolean(transition);
   container.classList.toggle('tour-walking',mode!=='overview');
@@ -106,6 +112,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  }
  function zoom(delta){if(mode!=='walk'||transition)return;const old=walkDiagonal;walkDiagonal=THREE.MathUtils.clamp(old+delta*.04,40,MAX_DIAGONAL);camera.fov=verticalFov(walkDiagonal);camera.zoom=1;camera.updateProjectionMatrix();if(delta>0&&old>=MAX_DIAGONAL-.01){exitPressure+=delta;if(exitPressure>=100)exit();}else exitPressure=0;emit();}
  function motion(event){
+  if(!editor&&mode==='overview'&&!transition&&event.pointerType!=='touch'){if(event.buttons){clearHover();}else{pendingHover={x:event.clientX,y:event.clientY};requestRender();}}
   if(mode==='walk'){const previous=pointers.get(event.pointerId);if(!previous)return;stop(event);pointers.set(event.pointerId,{x:event.clientX,y:event.clientY});if(pointers.size>=2){const [a,b]=[...pointers.values()],distance=Math.hypot(a.x-b.x,a.y-b.y);if(pinchDistance&&distance)zoom(Math.log(pinchDistance/distance)*1000);pinchDistance=distance;}else{yaw+=(event.clientX-previous.x)*.004;pitch+=(event.clientY-previous.y)*.004;look();emit();}return;}
   if(editor&&press?.id&&editMode!=='link'&&event.pointerId===press.pointer){if(Math.hypot(event.clientX-press.x,event.clientY-press.y)>6)press.drag=true;if(press.drag){stop(event);const hit=surface(event.clientX,event.clientY);if(hit){point(press.id).position=hit.point.toArray();rebuild();emit(true);}}}
  }
@@ -118,8 +125,8 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  function cancel(event){pointers.delete(event.pointerId);pinchDistance=0;press=null;}
  function wheel(event){if(mode==='walk'||transition){stop(event);if(!transition)zoom(event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?container.clientHeight:1));}}
  function key(event){if(event.key==='Escape'&&mode==='walk'){stop(event);exit();}else if(editor&&(event.key==='Delete'||event.key==='Backspace')&&!/INPUT|TEXTAREA/.test(event.target.tagName)){event.preventDefault();deleteSelected();}}
- const canvas=renderer.domElement;canvas.addEventListener('pointerdown',down,true);canvas.addEventListener('pointermove',motion,true);canvas.addEventListener('pointerup',up,true);canvas.addEventListener('pointercancel',cancel,true);canvas.addEventListener('wheel',wheel,{capture:true,passive:false});container.addEventListener('keydown',key,true);returnButton.onclick=exit;
+ const canvas=renderer.domElement;canvas.addEventListener('pointerdown',down,true);canvas.addEventListener('pointermove',motion,true);canvas.addEventListener('pointerup',up,true);canvas.addEventListener('pointercancel',cancel,true);canvas.addEventListener('pointerleave',clearHover,true);canvas.addEventListener('wheel',wheel,{capture:true,passive:false});container.addEventListener('keydown',key,true);returnButton.onclick=exit;
  rebuild();
- function dispose(){if(disposed)return;disposed=true;pointers.clear();transition=null;canvas.removeEventListener('pointerdown',down,true);canvas.removeEventListener('pointermove',motion,true);canvas.removeEventListener('pointerup',up,true);canvas.removeEventListener('pointercancel',cancel,true);canvas.removeEventListener('wheel',wheel,true);container.removeEventListener('keydown',key,true);overlay.remove();container.classList.remove('tour-walking');scene.remove(group);for(const marker of markers.values())marker.material.dispose();for(const line of linkLines.children){line.geometry.dispose();line.material.dispose();}circle.dispose();material.dispose();}
+ function dispose(){if(disposed)return;disposed=true;pointers.clear();transition=null;canvas.removeEventListener('pointerdown',down,true);canvas.removeEventListener('pointermove',motion,true);canvas.removeEventListener('pointerup',up,true);canvas.removeEventListener('pointercancel',cancel,true);canvas.removeEventListener('pointerleave',clearHover,true);canvas.removeEventListener('wheel',wheel,true);container.removeEventListener('keydown',key,true);overlay.remove();container.classList.remove('tour-walking');scene.remove(group);for(const marker of markers.values())marker.material.dispose();for(const line of linkLines.children){line.geometry.dispose();line.material.dispose();}circle.dispose();material.dispose();}
  return {enter,exit,move,update,beforeRender,dispose,getData,getState:state,getFocusPoint:()=>focus().toArray(),pickFloor:(x,y)=>surface(x,y)?.point.toArray()||null,addPoint,connect,select,deleteSelected,setMode,get locked(){return mode!=='overview';},get hasPoints(){return points.length>0;}};
 }
