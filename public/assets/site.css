@@ -52,9 +52,9 @@ html.photo-view-open{overflow:hidden;scrollbar-gutter:stable}.photo-lightbox{ove
 @media(max-width:767px){.model-section-control{top:80px;right:12px}}
 
 /* Panoramic tour editor and public transition markers. */
-.panorama-title{top:auto;bottom:86px;left:16px;font-size:13px;max-width:calc(100% - 32px);pointer-events:none}
+.panorama-title{top:12px;bottom:auto;left:12px;background:transparent;padding:0;border:0;box-shadow:none;color:#fff;font-size:13px;max-width:calc(100% - 32px);pointer-events:none}
 .pano-tour-hotspot{width:32px;height:32px;border:2px solid #ffd900;border-radius:50%;background:rgba(0,0,0,.5);box-sizing:border-box;cursor:pointer;box-shadow:0 1px 5px #0008}
-.pano-tour-hotspot::after{content:'➜';display:grid;place-items:center;width:100%;height:100%;color:#fff;font-size:21px}
+.pano-tour-hotspot::after{content:'➜';display:grid;place-items:center;width:100%;height:100%;color:#fff;font-size:21px;transform:rotate(-90deg)}
 .pano-tour-hotspot:hover,.pano-tour-hotspot:focus-visible{background:#000;outline:2px solid #fff;outline-offset:2px}
 .pano-edit-hotspot{touch-action:none;user-select:none}
 .pano-tour-editor,.pano-arrival-dialog{box-sizing:border-box;position:fixed;inset:0;margin:0;width:100%;height:100dvh;max-width:none;max-height:none;padding:0;border:0;border-radius:0;background:#16191d;color:#fff;overflow:hidden}
@@ -63,16 +63,16 @@ html.photo-view-open{overflow:hidden;scrollbar-gutter:stable}.photo-lightbox{ove
 .pano-tour-header h2{font-size:16px;margin:0}.pano-tour-header button{padding:7px 12px}
 .pano-tour-body{display:grid;grid-template-columns:1fr 1fr;flex:1;min-height:0}
 .pano-tour-stage,.pano-arrival-stage{position:relative;min-width:0;min-height:0;overflow:hidden}
-.pano-tour-surface{position:absolute;inset:0}.pano-tour-name{position:absolute;bottom:12px;left:12px;font-size:13px;z-index:3;color:white;text-shadow:0 1px 4px #000;pointer-events:none}
+.pano-tour-surface{position:absolute;inset:0}.pano-tour-name{position:absolute;top:12px;bottom:auto;left:12px;background:transparent;font-size:13px;z-index:3;color:white;text-shadow:0 1px 4px #000;pointer-events:none}
 .pano-tour-loading{position:absolute;inset:0;display:grid;place-content:center;background:#20252be6;z-index:5;text-align:center;padding:16px}
 .pano-tour-panel{display:flex;flex-direction:column;min-height:0;min-width:0;border-left:2px solid #16191d}
-.pano-tour-tiles{overflow:auto;overscroll-behavior:contain;min-height:0;flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;align-content:start}
-.pano-tour-tile{position:relative;aspect-ratio:2;cursor:grab;overflow:hidden;touch-action:pan-y;user-select:none;background:#333}
-.pano-tour-tile img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}.pano-tour-tile.is-current{outline:3px solid white;outline-offset:-3px}
+.pano-tour-tiles{overflow:auto;overscroll-behavior:contain;min-height:0;flex:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;align-content:start;grid-auto-rows:max-content;align-items:start}
+.pano-tour-tile{position:relative;min-width:0;min-height:0;height:0;padding-top:50%;cursor:grab;overflow:hidden;touch-action:pan-y;user-select:none;background:#333}
+.pano-tour-tile img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}.pano-tour-tile.is-current{outline:3px solid white;outline-offset:-3px}
 .pano-tour-caption{position:absolute;bottom:5px;left:7px;right:5px;color:#fff;text-shadow:0 1px 4px #000;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .pano-tour-badges{position:absolute;top:5px;right:5px;display:flex;gap:5px;align-items:center;pointer-events:none;background:#000b;border-radius:4px;padding:1px 4px;font-size:13px;font-weight:700;min-height:0}.pano-tour-badges:empty{display:none}
 .pano-in{color:#ffe000;order:1}.pano-out{color:#439aff;order:2}.pano-connected{color:#55ee80;order:3;border:1px solid currentColor;border-radius:50%;width:17px;height:17px;line-height:16px;text-align:center}
-button.pano-tour-star{position:absolute;top:2px;left:3px;padding:0;width:30px;height:30px;border:0;background:#0009;border-radius:4px;color:#fff;font-size:24px;line-height:30px;touch-action:manipulation}
+button.pano-tour-star{position:absolute;top:2px;left:3px;padding:0;width:30px;height:30px;border:0;background:transparent;border-radius:4px;color:rgba(255,255,255,.5);line-height:30px;touch-action:manipulation}
 .pano-tour-footer{height:32px;flex-shrink:0;display:flex;align-items:center;padding:0 8px;background:#20252b}
 button.pano-tour-health{border:0;background:none;padding:0;font-size:12px;color:#ffce54}button.pano-tour-health.is-connected{color:#55ee80}
 .pano-tour-error{position:absolute;bottom:36px;left:12px;right:12px;z-index:20;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#662c24;border-radius:6px;font-size:13px}
@@ -80,3 +80,7 @@ button.pano-tour-health{border:0;background:none;padding:0;font-size:12px;color:
 .pano-arrival-dialog{background:#16191df5}.pano-arrival-stage{flex:1}.pano-arrival-actions{margin:0;padding:10px;justify-content:center;flex-shrink:0}
 .pano-health-dialog p{white-space:pre-line}
 @media(max-width:767px){.pano-tour-body{grid-template-columns:1fr;grid-template-rows:1fr 1fr}.pano-tour-panel{border-left:0;border-top:2px solid #16191d}.pano-tour-badges{gap:3px;font-size:12px}.pano-tour-caption{font-size:13px}}
+
+.pano-tour-star svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1;stroke-linejoin:round;filter:drop-shadow(0 1px 2px #0009);pointer-events:none}
+.pano-tour-star[aria-pressed="true"]{color:#ffe000}
+.pano-tour-star[aria-pressed="true"] svg{fill:currentColor}
