@@ -24,3 +24,7 @@
 #caption-dialog{position:fixed;inset:0;margin:auto}
 @media(max-width:767px){.photo-admin-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.photo-tile-footer{padding:6px}.photo-tile-caption{font-size:12px}.photo-gallery{grid-template-columns:1fr;gap:4px}.photo-lightbox .photo-caption{font-size:13px;padding:20px 10px 10px}.photo-lightbox-arrow{display:none}.photo-lightbox-close{top:8px;right:8px}}
 html.photo-view-open{overflow:hidden;scrollbar-gutter:stable}.photo-lightbox{overscroll-behavior:contain}
+
+#floor-grid[aria-pressed=true]{background:var(--green);color:#101820;border-color:var(--green)}
+
+.model-controls{flex-wrap:wrap;justify-content:center}

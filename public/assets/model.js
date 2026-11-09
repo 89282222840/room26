@@ -4,6 +4,57 @@ import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader } from './vendor/three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from './vendor/three/addons/libs/meshopt_decoder.module.js';
+// Match original GLB names before GLTFLoader sanitizes or uniquifies them.
+function floorName(name) { return /^пол(?:$|[\s_\-])/iu.test((name || '').trim()); }
+function floorMeshes(gltf) {
+  const meshes=[];
+  gltf.scene.traverse(object=>{
+    if(!object.isMesh || object.isSkinnedMesh || object.isInstancedMesh)return;
+    let floor=false;
+    for(let node=object;node && node!==gltf.scene.parent;node=node.parent){
+      const link=gltf.parser.associations.get(node);
+      const meshName=link?.meshes!==undefined?gltf.parser.json.meshes[link.meshes]?.name:'';
+      const nodeName=link?.nodes!==undefined?gltf.parser.json.nodes[link.nodes]?.name:'';
+      if(floorName(meshName)||floorName(nodeName)||floorName(node.name)){floor=true;break;}
+    }
+    if(floor)meshes.push(object);
+  });
+  return meshes;
+}
+function makeFloorGrid(meshes) {
+  const vertices=[],a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),ab=new THREE.Vector3(),ac=new THREE.Vector3();
+  for(const object of meshes){
+    const geometry=object.geometry,position=geometry.getAttribute('position'),index=geometry.index;
+    if(!position)continue;
+    const count=index?index.count:position.count;
+    for(let i=0;i+2<count;i+=3){
+      a.fromBufferAttribute(position,index?index.getX(i):i).applyMatrix4(object.matrixWorld);
+      b.fromBufferAttribute(position,index?index.getX(i+1):i+1).applyMatrix4(object.matrixWorld);
+      c.fromBufferAttribute(position,index?index.getX(i+2):i+2).applyMatrix4(object.matrixWorld);
+      ab.subVectors(b,a);ac.subVectors(c,a);ab.cross(ac);
+      if(ab.lengthSq()<1e-16 || ab.normalize().y<.98)continue;
+      for(const point of [a,b,c])vertices.push(point.x,point.y+.15,point.z);
+    }
+  }
+  if(!vertices.length)return null;
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+  const material=new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,side:THREE.DoubleSide,
+    vertexShader:`varying vec2 gridPosition;
+      void main(){gridPosition=position.xz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader:`varying vec2 gridPosition;
+      void main(){
+        vec2 distanceToLine=abs(fract(gridPosition+0.5)-0.5);
+        vec2 pixelWidth=max(fwidth(gridPosition),vec2(0.0001));
+        vec2 coverage=1.0-smoothstep(vec2(0.0075),vec2(0.0075)+pixelWidth,distanceToLine);
+        float alpha=max(coverage.x,coverage.y);
+        if(alpha<0.02)discard;
+        gl_FragColor=vec4(0.0,0.0,0.0,alpha);
+      }`
+  });
+  const overlay=new THREE.Mesh(geometry,material);overlay.name='ROOM26 metric floor grid';overlay.visible=false;
+  return overlay;
+}
 export async function modelView(container, url, options = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio((options.preview || options.editor) ? 1 : Math.min(devicePixelRatio, 2));
@@ -40,6 +91,14 @@ export async function modelView(container, url, options = {}) {
     if(box.isEmpty())throw new Error('В модели нет видимой геометрии.');
     const center=box.getCenter(new THREE.Vector3()), size=box.getSize(new THREE.Vector3());
     const radius = Math.max(size.length() / 2, .001);
+    const floors=options.floorGrid?floorMeshes(gltf):[];
+    let floorGrid=null;
+    function setFloorGrid(visible){
+      if(disposed)return false;
+      if(visible && !floorGrid){floorGrid=makeFloorGrid(floors);if(floorGrid)scene.add(floorGrid);}
+      if(floorGrid)floorGrid.visible=Boolean(visible);
+      renderer.render(scene,camera);return Boolean(floorGrid?.visible);
+    }
     function autoView(w=container.clientWidth,h=container.clientHeight){
       const distance=radius / Math.sin(THREE.MathUtils.degToRad(20)) * Math.max(1,h/Math.max(w,1)) * 1.15;
       return {position:center.clone().add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance)).toArray(),target:center.toArray(),fov:40,zoom:1};
@@ -78,6 +137,6 @@ export async function modelView(container, url, options = {}) {
       }
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();renderer.render(scene,camera);}
-    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy};
+    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid};
   } catch(error) {dispose();throw error;}
 }

@@ -36,3 +36,7 @@ Saving a model view automatically renders new 400×200 and 1200×630 JPEG previe
 ## Photos
 
 Photos accept JPG, PNG, WebP, GIF and AVIF images. Browser-generated JPEG thumbnails appear in an admin grid with five desktop or three mobile columns. Captions and drag ordering are saved per project. Public galleries use original images across the full viewport width, with three desktop columns and one mobile column, 4 px gaps and square corners. Clicking opens a viewport-filling viewer with desktop arrows, keyboard navigation and mobile swipes. Captions are white, bottom-left, 13 px in galleries and fullscreen viewing on all devices.
+
+## Metric floor grid
+
+The public GLB viewer offers a Grid toggle when original mesh/node names begin with the separate Russian word `Пол` (case-insensitive; space, underscore and hyphen separators are accepted). Names such as `Полка` and `Плитка на пол` do not match. Original GLB names are checked before loader sanitization. Black lines use a common world X/Z origin with 1 metre spacing on upward horizontal triangles, offset 0.15 m above the floor. Model transforms, including Revit foot-to-metre scaling, are applied before grid generation. Other model surfaces occlude the grid normally. This initial version uses a fixed offset and does not detect finish layers. Camera editors and generated previews exclude the grid.
