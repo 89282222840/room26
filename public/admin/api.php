@@ -54,8 +54,8 @@ try {
         $id = uid(STORAGE); $dir = project_path($id);
         if (!mkdir($dir, 0755)) fail('Не удалось создать проект.', 500);
         chmod($dir, 0755);
-        foreach (['360','3d','doc'] as $type) { mkdir($dir . '/' . $type, 0755); chmod($dir . '/' . $type, 0755); }
-        $p = ['id'=>$id, 'name'=>$name, 'description'=>'', 'created'=>date(DATE_ATOM), 'items'=>['360'=>[], '3d'=>[], 'doc'=>[]]];
+        foreach (['360','3d','doc','photo'] as $type) { mkdir($dir . '/' . $type, 0755); chmod($dir . '/' . $type, 0755); }
+        $p = ['id'=>$id, 'name'=>$name, 'description'=>'', 'created'=>date(DATE_ATOM), 'items'=>['360'=>[], '3d'=>[], 'doc'=>[], 'photo'=>[]]];
         save_project($p);
     } else {
         $p = project(text_field('project', 6));
@@ -71,16 +71,17 @@ try {
             $p['name'] = $name; $p['description'] = $description;
             save_project($p);
         } elseif ($action === 'upload') {
-            $type = text_field('type', 3); if (!in_array($type, ['360','3d','doc'],true)) fail('Неверный раздел.');
+            $type = text_field('type', 5); if (!in_array($type, ['360','3d','doc','photo'],true)) fail('Неверный раздел.');
             $file = uploaded('file');
             $filename = basename(str_replace(chr(92), '/', $file['name']));
             $filename = preg_replace('/[\x00-\x1f\x7f]/', '', $filename);
             if ($filename === '' || strlen($filename) > 700) fail('Недопустимое имя файла.');
-            if ($type === '360') {
+            if ($type === '360' || $type === 'photo') {
                 $info = @getimagesize($file['tmp_name']);
-                if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP],true)) fail('Панорама должна быть JPG, PNG или WebP.');
-                if (abs($info[0] / $info[1] - 2) > 0.1) fail('Нужна эквидистантная панорама с соотношением сторон 2:1.');
-                $mime = $info['mime'];
+                $imageTypes=[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP];if($type==='photo'){$imageTypes[]=IMAGETYPE_GIF;if(defined('IMAGETYPE_AVIF'))$imageTypes[]=constant('IMAGETYPE_AVIF');}
+                if(!$info||!in_array($info[2],$imageTypes,true))fail('Загрузите изображение JPG, PNG, WebP, GIF или AVIF.');
+                if($type==='360' && abs($info[0]/$info[1]-2)>.1)fail('Нужна эквидистантная панорама с соотношением сторон 2:1.');
+                $mime=$info['mime'];
             } elseif ($type === '3d') {
                 $handle = fopen($file['tmp_name'], 'rb'); $header = fread($handle, 12); fclose($handle);
                 if (strlen($header)!==12 || substr($header,0,4)!=='glTF') fail('Загрузите модель в формате GLB.');
@@ -89,10 +90,12 @@ try {
                 $mime = 'model/gltf-binary';
             } else $mime = 'application/octet-stream';
             $parent = project_path($p['id']) . '/' . $type;
+            if(!is_dir($parent)){if(!mkdir($parent,0755))fail('Не удалось создать раздел.',500);chmod($parent,0755);}
             $existingIds = array_column($p['items'][$type], 'id');
             do { $id = bin2hex(random_bytes(3)); } while (in_array($id, $existingIds, true));
             $prefix = $parent . '/' . $id;
-            $extension = $type === 'doc' ? 'bin' : ($type === '3d' ? 'glb' : [IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png',IMAGETYPE_WEBP=>'webp'][$info[2]]);
+            $imageExtensions=[IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png',IMAGETYPE_WEBP=>'webp',IMAGETYPE_GIF=>'gif'];if(defined('IMAGETYPE_AVIF'))$imageExtensions[constant('IMAGETYPE_AVIF')]='avif';
+            $extension = $type === 'doc' ? 'bin' : ($type === '3d' ? 'glb' : $imageExtensions[$info[2]]);
             try {
                 if ($type !== 'doc') { jpeg_upload('thumb',$prefix.'-thumb.jpg',400,200); jpeg_upload('og',$prefix.'-og.jpg',1200,630); }
                 if (!move_uploaded_file($file['tmp_name'], $prefix.'.'.$extension)) fail('Не удалось сохранить файл.',500);
@@ -100,17 +103,18 @@ try {
                 $name = $type === 'doc' ? $filename : pathinfo($filename, PATHINFO_FILENAME);
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
+                if($type==='photo'){$item['name']=$name?:$filename;$item['width']=$info[0];$item['height']=$info[1];$item['public_filename']=new_document_filename(photo_project($p),$item);}
                 $p['items'][$type][] = $item;
                 save_project($p);
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path); throw $error; }
         } elseif ($action === 'reorder') {
-            $type = text_field('type',3); if (!in_array($type,['360','3d','doc'],true)) fail('Неверный раздел.');
+            $type = text_field('type',5); if (!in_array($type,['360','3d','doc','photo'],true)) fail('Неверный раздел.');
             $ids = json_decode(text_field('order', 100000),true);
             $items = $p['items'][$type]; $old = array_column($items,'id');
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
         } elseif ($action === 'save_views') {
-            $type=text_field('type',3);if(!in_array($type,['360','3d'],true))fail('Неверный раздел.');
+            $type=text_field('type',5);if(!in_array($type,['360','3d'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);$views=saved_views($type);
             foreach($p['items'][$type] as &$item)if($item['id']===$id)$item['views']=$views;unset($item);
             if($type==='3d'){
@@ -121,8 +125,12 @@ try {
                     foreach($p['items']['3d'] as &$item)if($item['id']===$id)$item['preview_version']=bin2hex(random_bytes(6));unset($item);save_project($p);
                 }finally{foreach([$temp.'-thumb.jpg',$temp.'-og.jpg'] as $file)if(is_file($file))unlink($file);}
             }else save_project($p);
+        } elseif ($action === 'caption') {
+            $id=text_field('item',6);find_item($p,'photo',$id);$name=text_field('name',200);$length=preg_match_all('/./us',$name,$characters);
+            if($name===''||$length===false||$length>200||preg_match('/[\r\n]/',$name))fail('Введите подпись до 200 символов.');
+            foreach($p['items']['photo'] as &$item)if($item['id']===$id)$item['name']=$name;unset($item);save_project($p);
         } elseif ($action === 'rename') {
-            $type = text_field('type',3); if (!in_array($type,['360','3d','doc'],true)) fail('Неверный раздел.');
+            $type = text_field('type',5); if (!in_array($type,['360','3d','doc'],true)) fail('Неверный раздел.');
             $id=text_field('item',6);$item=find_item($p,$type,$id);$name=text_field('name',200);
             $length=preg_match_all('/./us',$name,$characters);
             if($name==='' || $length===false || $length>200 || strpos($name,'/')!==false || strpos($name,chr(92))!==false || preg_match('/[\x00-\x1f\x7f]/',$name)) fail('Введите корректное имя файла без разделителей пути.');
@@ -141,7 +149,7 @@ try {
             }
             foreach($p['items'][$type] as &$stored)if($stored['id']===$id)$stored=$item;unset($stored);save_project($p);
         } elseif ($action === 'delete_item') {
-            $type=text_field('type',3);if(!in_array($type,['360','3d','doc'],true))fail('Неверный раздел.');
+            $type=text_field('type',5);if(!in_array($type,['360','3d','doc','photo'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);
             $p['items'][$type]=array_values(array_filter($p['items'][$type],function($item)use($id){return $item['id']!==$id;}));
             save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[]) as $path)unlink($path);

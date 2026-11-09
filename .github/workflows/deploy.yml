@@ -123,7 +123,7 @@ jobs:
                           continue
                       project_root = str(root / "pro" / project_id)
                       sftp.chmod(project_root, 0o755)
-                      for section in ("360", "3d", "doc"):
+                      for section in ("360", "3d", "doc", "photo"):
                           folder = project_root + "/" + section
                           try:
                               media_files = sftp.listdir(folder)
@@ -133,6 +133,6 @@ jobs:
                           if section == "doc":
                               continue
                           for media_file in media_files:
-                              if re.fullmatch(r"[a-f0-9]{6}(?:-(?:thumb|og)\.jpg|\.(?:jpg|png|webp|glb))", media_file):
+                              if re.fullmatch(r"[a-f0-9]{6}(?:-(?:thumb|og)\.jpg|\.(?:jpg|png|webp|gif|avif|glb))", media_file):
                                   sftp.chmod(folder + "/" + media_file, 0o644)
           print("Deployment completed.")

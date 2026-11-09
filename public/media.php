@@ -5,9 +5,9 @@ public_headers();
 try {
     foreach (['p','type','item','kind'] as $field) if (!isset($_GET[$field]) || !is_string($_GET[$field])) fail('Файл не найден.',404);
     $type=$_GET['type'];$kind=$_GET['kind'];
-    if(!in_array($type,['360','3d'],true)||!in_array($kind,['thumb','og','source'],true))fail('Файл не найден.',404);
+    if(!in_array($type,['360','3d','photo'],true)||!in_array($kind,['thumb','og','source'],true))fail('Файл не найден.',404);
     $p=project($_GET['p']);$item=find_item($p,$type,$_GET['item']);
-    $extension=$item['extension'];if(!in_array($extension,['jpg','png','webp','glb'],true))fail('Файл не найден.',404);
+    $extension=$item['extension'];if(!in_array($extension,['jpg','png','webp','gif','avif','glb'],true))fail('Файл не найден.',404);
     $filename=$item['id'].($kind==='source'?'.'.$extension:'-'.$kind.'.jpg');
     $source=project_path($p['id']).'/'.$type.'/'.$filename;
     if(!is_file($source))fail('Файл не найден.',404);

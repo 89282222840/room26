@@ -34,7 +34,7 @@ async function previews(file,type){
  const url=URL.createObjectURL(file);let view,stage,image;
  try{
   if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js?v='+config.versions.model)).modelView(stage,url,{preview:true});image=view.canvas;}
-  else{image=new Image();image.src=url;await image.decode();if(Math.abs(image.width/image.height-2)>.1)throw Error('Панорама должна иметь соотношение сторон 2:1.');}
+  else{image=new Image();image.src=url;await image.decode();if(type==='360'&&Math.abs(image.width/image.height-2)>.1)throw Error('Панорама должна иметь соотношение сторон 2:1.');}
   return {thumb:await jpeg(image,400,200),og:await jpeg(image,1200,630)};
  }finally{view?.dispose();stage?.remove();URL.revokeObjectURL(url);}
 }
@@ -93,12 +93,12 @@ async function persist(list,anchor=list){try{await api('reorder',{type:list.data
 document.querySelectorAll('.object-list').forEach(list=>{
  list.style.overflowAnchor='none';
  let dragged=null;
- list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle');if(!handle){event.preventDefault();return;}dragged=handle.closest('.object-row');dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',dragged.dataset.id);});
- list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();const target=event.target.closest('.object-row');if(target&&target!==dragged){const rect=target.getBoundingClientRect();list.insertBefore(dragged,event.clientY<rect.top+rect.height/2?target:target.nextSibling);}});
+ list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle'),tile=event.target.closest('.photo-tile');if(!handle&&!tile){event.preventDefault();return;}if(!handle&&event.target.closest('button')){event.preventDefault();return;}dragged=(handle||tile).closest('.object-row,.photo-tile');dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.clearData();event.dataTransfer.setData('application/x-room26-reorder',dragged.dataset.id);event.dataTransfer.setData('text/plain',dragged.dataset.id);});
+ list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();const target=event.target.closest('.object-row,.photo-tile');if(target&&target!==dragged){const rect=target.getBoundingClientRect();list.insertBefore(dragged,(list.classList.contains('photo-admin-grid')?event.clientX<rect.left+rect.width/2:event.clientY<rect.top+rect.height/2)?target:target.nextSibling);}});
  list.addEventListener('drop',async event=>{if(!dragged)return;event.preventDefault();const handle=dragged.querySelector('.drag-handle');dragged.classList.remove('dragging');dragged=null;await persist(list,handle);});
  list.addEventListener('dragend',()=>{dragged?.classList.remove('dragging');dragged=null;});
  // Touch drag uses the same handle; native HTML drag remains available on desktop.
- list.querySelectorAll('.drag-handle').forEach(handle=>{let touchRow=null,changed=false;handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;touchRow=handle.closest('.object-row');changed=false;handle.setPointerCapture(event.pointerId);touchRow.classList.add('dragging');});handle.addEventListener('pointermove',event=>{if(!touchRow)return;const target=document.elementsFromPoint(event.clientX,event.clientY).map(el=>el.closest('.object-row')).find(row=>row&&row!==touchRow&&row.parentElement===list);if(target){const rect=target.getBoundingClientRect();list.insertBefore(touchRow,event.clientY<rect.top+rect.height/2?target:target.nextSibling);changed=true;}});const end=()=>{if(touchRow){touchRow.classList.remove('dragging');touchRow=null;if(changed)persist(list,handle);}};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});
+ list.querySelectorAll('.drag-handle').forEach(handle=>{let touchRow=null,changed=false;handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;touchRow=handle.closest('.object-row,.photo-tile');changed=false;handle.setPointerCapture(event.pointerId);touchRow.classList.add('dragging');});handle.addEventListener('pointermove',event=>{if(!touchRow)return;const target=document.elementsFromPoint(event.clientX,event.clientY).map(el=>el.closest('.object-row,.photo-tile')).find(row=>row&&row!==touchRow&&row.parentElement===list);if(target){const rect=target.getBoundingClientRect();list.insertBefore(touchRow,(list.classList.contains('photo-admin-grid')?event.clientX<rect.left+rect.width/2:event.clientY<rect.top+rect.height/2)?target:target.nextSibling);changed=true;}});const end=()=>{if(touchRow){touchRow.classList.remove('dragging');touchRow=null;if(changed)persist(list,handle);}};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});
  list.querySelectorAll('[data-move]').forEach(button=>button.onclick=async()=>{const row=button.closest('.object-row');if(button.dataset.move==='up'&&row.previousElementSibling)list.insertBefore(row,row.previousElementSibling);else if(button.dataset.move==='down'&&row.nextElementSibling)list.insertBefore(row.nextElementSibling,row);else return;await persist(list,button);});
 });
 
@@ -116,7 +116,7 @@ if(deleteDialog){
 
 if(newProjectButton)newProjectButton.disabled=false;
 
-function isFileDrag(event){return Array.from(event.dataTransfer?.types||[]).includes('Files');}
+function isFileDrag(event){const types=Array.from(event.dataTransfer?.types||[]);return types.includes('Files')&&!types.includes('application/x-room26-reorder');}
 function clearDropHighlights(){document.querySelectorAll('.upload.is-dragover').forEach(form=>form.classList.remove('is-dragover'));}
 document.addEventListener('dragover',event=>{if(isFileDrag(event)){event.preventDefault();if(!(event.target instanceof Element)||!event.target.closest('form.upload'))event.dataTransfer.dropEffect='none';}});
 document.addEventListener('drop',event=>{if(isFileDrag(event)){event.preventDefault();clearDropHighlights();}});
@@ -147,3 +147,13 @@ document.querySelectorAll('[data-camera]').forEach(button=>button.onclick=async(
   }});
  }catch(error){show(error.message,true,button);}finally{button.disabled=false;}
 });
+
+const captionDialog=document.querySelector('#caption-dialog');
+if(captionDialog){
+ const form=document.querySelector('#caption-form'),field=document.querySelector('#photo-caption'),cancel=document.querySelector('#caption-cancel');let target;
+ document.querySelectorAll('[data-caption]').forEach(button=>button.onclick=()=>{target=button;field.value=button.dataset.name;captionDialog.showModal();field.select();});
+ cancel.onclick=()=>captionDialog.close();captionDialog.addEventListener('cancel',event=>{if(form.querySelector('button[type=submit]').disabled)event.preventDefault();});
+ form.onsubmit=async event=>{event.preventDefault();const submit=event.submitter;submit.disabled=true;cancel.disabled=true;
+  try{const result=await api('caption',{item:target.dataset.caption,name:field.value});config.project=result.project;const item=result.project.items.photo.find(item=>item.id===target.dataset.caption),tile=target.closest('.photo-tile');tile.querySelector('.photo-tile-caption').textContent=item.name;target.dataset.name=item.name;tile.querySelector('img').alt=item.name;tile.querySelector('a').setAttribute('aria-label',item.name);tile.querySelector('.drag-handle').setAttribute('aria-label','Переместить '+item.name);captionDialog.close();target.focus({preventScroll:true});show('Подпись сохранена.',false,target);}catch(error){show(error.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
+ };
+}

@@ -9,6 +9,7 @@ PHP 7.3+ application for project pages, Pannellum panoramas, three.js GLB models
 - `/pro/{project}/360/`: starting panorama; `?item={id}` opens a particular panorama.
 - `/pro/{project}/3d/`: starting model; `?item={id}` opens a particular model.
 - `/pro/{project}/doc/`: document links with upload date in Moscow time.
+- `/pro/{project}/photo/`: original photo gallery; `/pro/{project}/photo/{filename}` serves the original image directly.
 
 Panoramas and GLB files are stored directly in each project's `360/` and `3d/` directories, alongside generated JPEG thumbnails (400×200) and OG covers (1200×630). Filenames on disk use generated IDs; original names are preserved in project metadata. Document payloads use `.bin` storage and are served through PHP at `/pro/{project}/doc/{filename}` with their actual content types and without forced attachment headers. Duplicate filenames receive a suffix. The browser decides whether to view or save a document.
 
@@ -31,3 +32,7 @@ Authentication credentials are stored only on the hosting, in `.room26-auth.json
 Panoramas and models have independent `mobile` and `desktop` views stored per item in project metadata. The editor uses a logical 393×740 phone viewport and a 1280×720 desktop viewport, scaled to fit the available admin screen. Client viewports at 767 CSS pixels or less use the mobile view; wider viewports use the desktop view, including when resized across the breakpoint. Objects without settings use automatic framing.
 
 Saving a model view automatically renders new 400×200 and 1200×630 JPEG previews from the currently selected view and changes their versioned URLs. Saving a panorama view updates only its yaw, pitch and horizontal field of view; panorama previews are preserved.
+
+## Photos
+
+Photos accept JPG, PNG, WebP, GIF and AVIF images. Browser-generated JPEG thumbnails appear in an admin grid with five desktop or three mobile columns. Captions and drag ordering are saved per project. Public galleries use original images, with three desktop columns and one mobile column. Clicking opens a viewport-filling viewer with desktop arrows, keyboard navigation and mobile swipes. Captions are white, bottom-left, 13 px in galleries and mobile viewing, and 22 px in desktop viewing.

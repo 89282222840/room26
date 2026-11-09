@@ -19,6 +19,7 @@ function project(string $id): array {
     if (!is_file($path)) fail('Проект не найден.', 404);
     $p = json_decode((string)file_get_contents($path), true);
     if (!is_array($p)) fail('Не удалось прочитать проект.', 500);
+    $p['items']['photo']=$p['items']['photo']??[];
     return $p;
 }
 function save_project(array $p): void {
@@ -31,7 +32,7 @@ function projects(): array {
     $list = [];
     foreach (glob(STORAGE . '/*/project.json') ?: [] as $file) {
         $p = json_decode((string)file_get_contents($file), true);
-        if (is_array($p)) $list[] = $p;
+        if (is_array($p)) { $p['items']['photo']=$p['items']['photo']??[]; $list[] = $p; }
     }
     usort($list, function ($a, $b) { return strcmp($b['created'], $a['created']); });
     return $list;
@@ -91,7 +92,10 @@ function document_by_filename(array $p, string $filename): array {
     foreach ($p['items']['doc'] as $item) if (empty($item['public_filename']) && document_suffix(document_base_name($item['filename']), $item['id']) === $filename) return $item;
     fail('Файл не найден.', 404);
 }
-function item_url(array $p, string $type, array $item): string { return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
+function photo_project(array $p): array { $p['items']['doc']=$p['items']['photo']??[];return $p; }
+function photo_filename(array $p,array $item): string { return document_filename(photo_project($p),$item); }
+function photo_caption(array $item): string { return $item['name'] ?: (pathinfo($item['filename'],PATHINFO_FILENAME) ?: $item['filename']); }
+function item_url(array $p, string $type, array $item): string { if($type==='photo')return '/pro/'.$p['id'].'/photo/'.rawurlencode(photo_filename($p,$item)); return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
 function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind!=='source'?($item['preview_version']??null):null],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
@@ -101,7 +105,7 @@ function start_item(array $p, string $type): ?array {
     return $p['items'][$type][0] ?? null;
 }
 function project_image(array $p): string {
-    foreach (['360', '3d'] as $type) {
+    foreach (['360', '3d', 'photo'] as $type) {
         $item = start_item($p, $type);
         if ($item) return asset_url($p, $type, $item, 'og');
     }
