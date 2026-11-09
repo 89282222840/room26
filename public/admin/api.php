@@ -20,6 +20,30 @@ function jpeg_upload(string $field, string $target, int $width, int $height): vo
     if ($f['size'] > 5*1024*1024 || !$info || $info[0] !== $width || $info[1] !== $height || $info[2] !== IMAGETYPE_JPEG) fail('Не удалось создать JPG-превью.');
     if (!move_uploaded_file($f['tmp_name'], $target) || !chmod($target, 0644)) fail('Не удалось сохранить превью.', 500);
 }
+function edge_cache_upload(string $target): void {
+    $file=uploaded('edge_cache');
+    if($file['size']>64*1024*1024)fail('Файл обводки слишком большой.');
+    $raw=file_get_contents($file['tmp_name']);
+    if(substr($raw,0,2)===chr(31).chr(139)){
+        if(!function_exists('gzdecode'))fail('Сжатая обводка не поддерживается хостингом.');
+        $raw=@gzdecode($raw,64*1024*1024+1);if($raw===false)fail('Повреждённый архив обводки.');
+    }
+    $length=strlen($raw);if($length>64*1024*1024)fail('Файл обводки слишком большой.');
+    $prefix=substr($raw,0,12);
+    if(strlen($prefix)!==12||substr($prefix,0,8)!=='R26E0001')fail('Некорректный файл обводки.');
+    $size=unpack('Vsize',substr($prefix,8,4))['size'];
+    if($size<1||$size>1048576||$size+12>$length)fail('Некорректный заголовок обводки.');
+    $header=json_decode(substr($raw,12,$size),true);
+    if(!is_array($header)||($header['version']??null)!==1||!isset($header['entries'])||!is_array($header['entries'])||count($header['entries'])>50000)fail('Некорректная версия обводки.');
+    $expected=(12+$size+3)&~3;$keys=[];
+    foreach($header['entries'] as $entry){
+        if(!is_array($entry)||!isset($entry['key'],$entry['signature'],$entry['near'],$entry['far'])||!is_string($entry['key'])||!preg_match('/^g[0-9]{1,6}$/D',$entry['key'])||isset($keys[$entry['key']])||!is_string($entry['signature'])||!preg_match('~^[0-9]{1,10}/[0-9]{1,10}$~D',$entry['signature'])||!is_int($entry['near'])||!is_int($entry['far'])||$entry['near']<0||$entry['far']<0||$entry['far']>$entry['near'])fail('Некорректные данные обводки.');
+        $keys[$entry['key']]=true;$expected+=$entry['near']*24+$entry['far']*4;
+        if($expected>$length)fail('Повреждённый файл обводки.');
+    }
+    if($expected!==$length)fail('Повреждённый файл обводки.');
+    if(file_put_contents($target,function_exists('gzencode')?gzencode($raw,6):$raw)===false||!chmod($target,0600))fail('Не удалось сохранить обводку.',500);
+}
 function saved_views(string $type): array {
     $raw=json_decode(text_field('views',5000),true);if(!is_array($raw))fail('Некорректные ракурсы.');$result=[];
     foreach(['mobile','desktop'] as $profile){
@@ -104,9 +128,19 @@ try {
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
                 if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
                 if($type==='photo'){$item['name']=$name?:$filename;$item['width']=$info[0];$item['height']=$info[1];$item['public_filename']=new_document_filename(photo_project($p),$item);}
+                if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=1;$item['edge_revision']=bin2hex(random_bytes(6));}
                 $p['items'][$type][] = $item;
                 save_project($p);
-            } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path); throw $error; }
+            } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path);if(is_file($prefix.'-edges.bin'))unlink($prefix.'-edges.bin'); throw $error; }
+        } elseif ($action === 'save_edges') {
+            $id=text_field('item',6);$item=find_item($p,'3d',$id);
+            if((string)$item['size']!==text_field('source_size',30))fail('Модель изменилась. Обновите страницу.',409);
+            $prefix=project_path($p['id']).'/3d/'.$id;$temp=project_path($p['id']).'/3d/.edges-'.bin2hex(random_bytes(6));
+            try{
+                edge_cache_upload($temp);
+                if(!rename($temp,$prefix.'-edges.bin'))fail('Не удалось сохранить обводку.',500);
+                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=1;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
+            }finally{if(is_file($temp))unlink($temp);}
         } elseif ($action === 'reorder') {
             $type = text_field('type',5); if (!in_array($type,['360','3d','doc','photo'],true)) fail('Неверный раздел.');
             $ids = json_decode(text_field('order', 100000),true);
@@ -152,7 +186,7 @@ try {
             $type=text_field('type',5);if(!in_array($type,['360','3d','doc','photo'],true))fail('Неверный раздел.');
             $id=text_field('item',6);find_item($p,$type,$id);
             $p['items'][$type]=array_values(array_filter($p['items'][$type],function($item)use($id){return $item['id']!==$id;}));
-            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[]) as $path)unlink($path);
+            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-edges.bin')?:[]) as $path)unlink($path);
         } else fail('Неизвестное действие.');
     }
     flock($lock,LOCK_UN);fclose($lock);$lock=null;

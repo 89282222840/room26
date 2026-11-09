@@ -96,7 +96,7 @@ function photo_project(array $p): array { $p['items']['doc']=$p['items']['photo'
 function photo_filename(array $p,array $item): string { return document_filename(photo_project($p),$item); }
 function photo_caption(array $item): string { return $item['name'] ?: (pathinfo($item['filename'],PATHINFO_FILENAME) ?: $item['filename']); }
 function item_url(array $p, string $type, array $item): string { if($type==='photo')return '/pro/'.$p['id'].'/photo/'.rawurlencode(photo_filename($p,$item)); return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
-function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind!=='source'?($item['preview_version']??null):null],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
+function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind==='edges'?($item['edge_revision']??null):($kind!=='source'?($item['preview_version']??null):null)],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
     fail('Объект не найден.', 404);

@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
+import { installEdges } from './edges.js?v=1';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -78,9 +79,9 @@ export async function modelView(container, url, options = {}) {
   const draco = new DRACOLoader(manager).setDecoderPath('/assets/vendor/three/addons/libs/draco/gltf/').setDecoderConfig({type:'js'});
   const ktx = new KTX2Loader(manager).setTranscoderPath('/assets/vendor/three/addons/libs/basis/').detectSupport(renderer);
   const loader = new GLTFLoader(manager).setDRACOLoader(draco).setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
-  let observer, mixer, disposed = false;
+  let observer, mixer, edges, frame=0, capturing=false, renderedFrames=0, disposed = false;
   function dispose() {
-    if(disposed)return;disposed=true;renderer.setAnimationLoop(null);observer?.disconnect();controls.dispose();draco.dispose();ktx.dispose();
+    if(disposed)return;disposed=true;cancelAnimationFrame(frame);frame=0;observer?.disconnect();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture)v.dispose();m.dispose();}});
     renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
   }
@@ -93,45 +94,21 @@ export async function modelView(container, url, options = {}) {
     const radius = Math.max(size.length() / 2, .001);
     const floors=options.floorGrid?floorMeshes(gltf):[];
     let floorGrid=null;
-    // Keep characteristic edges lightweight for architectural models.
-    const meshes=[];gltf.scene.traverse(object=>{if(object.isMesh)meshes.push(object);});
-    const edgeCache=new Map(),mergedEdges=[];
-    const edgeMaterial=new THREE.LineBasicMaterial({color:0x666666,linewidth:1,depthTest:true,depthWrite:false,toneMapped:false});
-    const point=new THREE.Vector3(),instance=new THREE.Matrix4(),transform=new THREE.Matrix4();
-    let edgeCount=0;
-    for(const object of meshes){
-      let edges=edgeCache.get(object.geometry);
-      if(!edges){edges=new THREE.EdgesGeometry(object.geometry,30);edgeCache.set(object.geometry,edges);}
-      const positions=edges.getAttribute('position');if(!positions.count)continue;
-      const count=object.isInstancedMesh?object.count:1;
-      const merge=!gltf.animations.length&&!object.isSkinnedMesh&&!object.morphTargetInfluences;
-      let lineGeometry=null;
-      for(let i=0;i<count;i++){
-        if(merge){
-          transform.copy(object.matrixWorld);
-          if(object.isInstancedMesh){object.getMatrixAt(i,instance);transform.multiply(instance);}
-          for(let j=0;j<positions.count;j++){
-            point.fromBufferAttribute(positions,j).applyMatrix4(transform);mergedEdges.push(point.x,point.y,point.z);
-          }
-        }else{
-          if(!lineGeometry)lineGeometry=new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(positions.array,3));
-          const lines=new THREE.LineSegments(lineGeometry,edgeMaterial);lines.name='ROOM26 characteristic edges';lines.renderOrder=1;
-          if(object.isInstancedMesh){object.getMatrixAt(i,lines.matrix);lines.matrixAutoUpdate=false;}
-          object.add(lines);edgeCount++;
-        }
-      }
+    let cachedEdges=null;
+    if(options.edgeCacheURL){try{const response=await fetch(options.edgeCacheURL);if(response.ok){cachedEdges=await response.arrayBuffer();const bytes=new Uint8Array(cachedEdges);if(bytes[0]===31&&bytes[1]===139){cachedEdges=await new Response(new Blob([cachedEdges]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();}}}catch(error){/* Original GLB remains usable without a sidecar. */}}
+    if(disposed)throw Error('Просмотрщик закрыт.');
+    edges=installEdges(gltf,scene,cachedEdges);scene.updateMatrixWorld(true);
+    function render(){
+      if(disposed)return;
+      if(mixer)scene.updateMatrixWorld(true);
+      edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
+      renderer.render(scene,camera);renderedFrames++;
     }
-    for(const geometry of edgeCache.values())geometry.dispose();
-    if(mergedEdges.length){
-      const lines=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(mergedEdges,3)),edgeMaterial);
-      lines.name='ROOM26 characteristic edges';lines.renderOrder=1;scene.add(lines);edgeCount++;
-    }
-    if(!edgeCount)edgeMaterial.dispose();
     function setFloorGrid(visible){
       if(disposed)return false;
       if(visible && !floorGrid){floorGrid=makeFloorGrid(floors);if(floorGrid)scene.add(floorGrid);}
       if(floorGrid)floorGrid.visible=Boolean(visible);
-      renderer.render(scene,camera);return Boolean(floorGrid?.visible);
+      render();return Boolean(floorGrid?.visible);
     }
     function autoView(w=container.clientWidth,h=container.clientHeight){
       const distance=radius / Math.sin(THREE.MathUtils.degToRad(20)) * Math.max(1,h/Math.max(w,1)) * 1.15;
@@ -141,7 +118,7 @@ export async function modelView(container, url, options = {}) {
       state=state||autoView();
       camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=state.fov||40;camera.zoom=state.zoom||1;
       camera.near=Math.max(radius/10000,.000001);camera.far=Math.max(camera.position.distanceTo(center)+radius*100,radius*1000);camera.updateProjectionMatrix();
-      controls.update();renderer.render(scene,camera);
+      controls.update();render();
     }
     function getView(){controls.update();return {position:camera.position.toArray(),target:controls.target.toArray(),fov:camera.fov,zoom:camera.zoom};}
     let profile=container.clientWidth<=767?'mobile':'desktop';
@@ -150,27 +127,33 @@ export async function modelView(container, url, options = {}) {
       if(!w||!h||disposed)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
       const next=w<=767?'mobile':'desktop';
       if(options.views && next!==profile){profile=next;setView(options.views[next]||autoView(w,h));}
-      renderer.render(scene,camera);
+      render();
     }
     if(gltf.animations.length && !options.preview && !options.editor){mixer=new THREE.AnimationMixer(gltf.scene);mixer.clipAction(gltf.animations[0]).play();}
-    renderer.render(scene,camera);
     const clock = new THREE.Clock();
-    function tick(){mixer?.update(Math.min(clock.getDelta(),.1));controls.update();renderer.render(scene,camera);}
+    function requestRender(){if(disposed||capturing||options.preview||frame)return;frame=requestAnimationFrame(tick);}
+    function tick(){
+      frame=0;if(disposed||capturing)return;
+      mixer?.update(Math.min(clock.getDelta(),.1));
+      const changed=controls.update();render();
+      if(mixer||changed)requestRender();
+    }
+    controls.addEventListener('change',requestRender);
     if(!options.preview){
       observer=new ResizeObserver(()=>resize());observer.observe(container);
-      renderer.setAnimationLoop(tick);
+      requestRender();
     }
     async function capture(w,h){
       const oldSize=renderer.getSize(new THREE.Vector2()),ratio=renderer.getPixelRatio(),aspect=camera.aspect;
-      renderer.setAnimationLoop(null);
+      capturing=true;cancelAnimationFrame(frame);frame=0;
       try{
-        renderer.setPixelRatio(1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();renderer.render(scene,camera);
+        renderer.setPixelRatio(1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();render();
         return await new Promise((resolve,reject)=>renderer.domElement.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать превью.')),'image/jpeg',.9));
       }finally{
-        renderer.setPixelRatio(ratio);renderer.setSize(oldSize.x,oldSize.y);camera.aspect=aspect;camera.updateProjectionMatrix();renderer.render(scene,camera);if(!options.preview&&!disposed)renderer.setAnimationLoop(tick);
+        renderer.setPixelRatio(ratio);renderer.setSize(oldSize.x,oldSize.y);camera.aspect=aspect;camera.updateProjectionMatrix();render();capturing=false;requestRender();
       }
     }
-    function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();renderer.render(scene,camera);}
-    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid};
+    function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
+    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines})};
   } catch(error) {dispose();throw error;}
 }

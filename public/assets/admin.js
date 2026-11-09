@@ -35,7 +35,7 @@ async function previews(file,type){
  try{
   if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js?v='+config.versions.model)).modelView(stage,url,{preview:true});image=view.canvas;}
   else{image=new Image();image.src=url;await image.decode();if(type==='360'&&Math.abs(image.width/image.height-2)>.1)throw Error('Панорама должна иметь соотношение сторон 2:1.');}
-  return {thumb:await jpeg(image,400,200),og:await jpeg(image,1200,630)};
+  const edges=await view?.getEdgeCache();return {thumb:await jpeg(image,400,200),og:await jpeg(image,1200,630),edges:edges?.size<=64*1024*1024?edges:null};
  }finally{view?.dispose();stage?.remove();URL.revokeObjectURL(url);}
 }
 let busy=false;
@@ -47,7 +47,7 @@ document.querySelectorAll('form.upload').forEach(form=>form.onsubmit=async event
  let done=0;
  try{for(const file of files){status.textContent=`${done+1} / ${files.length}: ${file.name}\n${type==='doc'?'Загрузка…':'Создание превью…'}`;
   const body=new FormData();body.set('type',type);body.set('file',file);
-  if(type!=='doc'){const p=await previews(file,type);body.set('thumb',p.thumb,'thumb.jpg');body.set('og',p.og,'og.jpg');}
+  if(type!=='doc'){const p=await previews(file,type);body.set('thumb',p.thumb,'thumb.jpg');body.set('og',p.og,'og.jpg');if(p.edges)body.set('edge_cache',p.edges,'edges.bin');}
   status.textContent=`${done+1} / ${files.length}: ${file.name}\nЗагрузка на сервер…`;await api('upload',body);done++;bar.value=done/files.length*100;
  }busy=false;location.reload();}catch(e){busy=false;const message=`Загружено: ${done} из ${files.length}. ${e.message}`+(done?' Обновите страницу для просмотра загруженных файлов.':'');status.textContent='';bar.classList.add('hidden');uploadBusy(false);show(message,true,form.querySelector('button'));}
 });
