@@ -43,15 +43,9 @@ The public GLB viewer offers a Grid toggle when original mesh/node names begin w
 
 ## Characteristic edges
 
-Models always render #666666 characteristic edges at the native WebGL 1-pixel width, without a toggle. Model surface materials use polygonOffset factor 1 / units 1 unless an offset is already configured. This separates surface depth from coplanar contour lines without moving geometry; normal depth testing still hides occluded lines.
+Models always render #666666 edges at the native WebGL 1-pixel width, without a toggle. The current comparison mode uses THREE.EdgesGeometry with a 90-degree threshold. Chain completion, geometric pruning and distance-dependent contour levels are disabled, so the test isolates the angle threshold. Surface polygonOffset factor 1 / units 1 prevents contour/surface depth conflicts; normal depth testing hides occluded lines. Static contours remain batched and models render on demand.
 
-30-degree crease edges seed connected contour chains. Geometry with a substantial parallel structure may use weaker 5-degree edges to continue those chains, with at most a 3-degree turn at each connection and a bounded candidate count. Endpoints are welded within a 10-micrometre grid; collinear simplification is limited to a 1-micrometre deviation. No connection is invented across a real topology gap. On thin faceted sheets, short isolated crease fragments can be omitted while retaining the boundary and long folds. These are geometric heuristics, not exact view-dependent silhouette extraction.
-
-Close and distant contour levels prune whole chains at 3 cm and 10 cm spacing. A chain is removed only when a nearby longer chain covers its span and sampled shape; extreme chains are retained. Geometry and surface materials stay intact. The distant level is selected when a 10 cm reference spans fewer than 5 screen pixels; the close level returns above 7 pixels. Only adaptive objects are checked when rendering. Static contours share one indexed draw call; indices change only when a level changes.
-
-New GLB uploads generate an R26E0003 binary sidecar in the admin browser alongside previews. It stores classification, prepared close-level coordinates and distant-level segment indices. PHP validates, compresses and stores it as `{item}-edges.bin` with private filesystem permissions. `media.php?kind=edges` serves it publicly with gzip encoding and a revisioned URL. GLB IDs and source size bind authenticated saves to the model. Replacing a model or changing the algorithm requires regeneration. Missing or invalid caches fall back to preparing contours from the original GLB. Cache data never replaces model geometry.
-
-Static models render on demand. Camera controls request frames only while damping settles; animated GLBs retain animation frames. Resize, presets, floor-grid changes and preview capture still render. Editors reuse available caches. Diagnostic counts are exposed through the model-view API for verification.
+New GLB uploads prepare an R26E0004 binary sidecar alongside previews. It stores the 90-degree contour coordinates; distant-level indices are empty. PHP validates and compresses the sidecar as `{item}-edges.bin`, served through revisioned media.php URLs. Existing model caches must be regenerated after changing the contour algorithm. Camera editors reuse current caches. Invalid or missing caches fall back to preparing edges from the original model. The source GLB is unchanged.
 
 ## Depth precision
 
