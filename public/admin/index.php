@@ -7,7 +7,7 @@ $selected = null;
 if ($authenticated && isset($_GET['p']) && is_string($_GET['p'])) {
     try { $selected = project($_GET['p']); } catch (Throwable $ex) { http_response_code(404); $error = 'Проект не найден.'; }
 }
-$labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'Документы','photo'=>'Фото'];
+$labels = ['360'=>'Виртуальный тур','3d'=>'3D-модели','doc'=>'Документы','photo'=>'Фото'];
 ?>
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Админка — ROOM26</title><link rel="stylesheet" href="<?=e(css_url())?>"></head>
 <body class="<?= $authenticated?'':'login' ?>">
@@ -30,7 +30,12 @@ $labels = ['360'=>'Панорамы 360°','3d'=>'3D-модели','doc'=>'До�
 <div class="wide actions"><button type="submit">Сохранить настройки</button></div>
 </form></section>
 <?php foreach($labels as $type=>$label):$type=(string)$type; ?>
-<section class="card" id="section-<?=$type?>"><div class="section-header"><h2><?=e($label)?></h2><span class="muted small"><?=count($p['items'][$type])?> объектов</span><?php if($type==='360'&&!empty($p['items']['360'])):$links=0;foreach($p['panorama_tour']['points']??[] as $list)$links+=count($list); ?><div class="actions"><span id="panorama-tour-count" class="muted small"><?=$links?'Тур · переходов: '.$links:''?></span><button type="button" class="secondary" id="panorama-tour-edit"><?=$links?'Редактировать тур':'Создать тур'?></button><a id="panorama-tour-preview" href="/pro/<?=e($p['id'])?>/360/" target="_blank" rel="noopener" <?=$links?'':'hidden'?>>Посмотреть тур ↗</a></div><?php endif ?></div>
+<?php if($type==='360'):$summary=panorama_tour_status($p); ?>
+<section class="card" id="section-360"><div class="section-header"><h2>Виртуальный тур</h2><div id="panorama-tour-count" class="small"><?=e($summary['count'])?>, <span class="tour-status-<?=$summary['connected']?'ok':'warning'?>"><?=e($summary['label'])?></span></div></div>
+<div class="actions"><button type="button" id="panorama-tour-edit"><?=$p['items']['360']?'Редактировать тур':'Создать тур'?></button><a id="panorama-tour-preview" href="/pro/<?=e($p['id'])?>/360/" target="_blank" rel="noopener" <?=$p['items']['360']?'':'hidden'?>>Посмотреть тур ↗</a></div></section>
+<?php continue;endif ?>
+
+<section class="card" id="section-<?=$type?>"><div class="section-header"><h2><?=e($label)?></h2><span class="muted small"><?=count($p['items'][$type])?> объектов</span></div>
 <form class="upload" data-type="<?=$type?>"><label for="files-<?=$type?>"><?=$type==='360'?'Добавить панорамы (JPG, PNG, WebP, формат 2:1)':($type==='3d'?'Добавить модели GLB':($type==='photo'?'Добавить фото (JPG, PNG, WebP, GIF, AVIF)':'Добавить файлы любых форматов'))?></label><p class="upload-drop-hint muted small" id="upload-hint-<?=$type?>">Перетащите файлы сюда или выберите их</p><input type="file" hidden aria-describedby="upload-hint-<?=$type?>" id="files-<?=$type?>" name="files" multiple required <?=$type==='360'?'accept="image/jpeg,image/png,image/webp"':($type==='3d'?'accept=".glb"':($type==='photo'?'accept="image/jpeg,image/png,image/webp,image/gif,image/avif"':''))?>><button type="button" class="choose-files" aria-controls="files-<?=$type?>" aria-describedby="upload-hint-<?=$type?>">Выбрать файлы</button><p class="muted small"><?php if($type==='doc'): ?>Файлы будут доступны по прямым ссылкам.<?php else: ?>JPG-превью 400 × 200 и обложка ссылки создаются автоматически.<?php endif ?> Лимит одного файла на сервере: <?=e(ini_get('upload_max_filesize'))?>; запроса: <?=e(ini_get('post_max_size'))?>.</p><div class="upload-status" role="status"></div><progress class="hidden" max="100" value="0"></progress></form>
 <div class="object-list <?=$type==='photo'?'photo-admin-grid':''?>" data-type="<?=$type?>">
 <?php foreach($p['items'][$type] as $item):$url=item_url($p,$type,$item); ?>

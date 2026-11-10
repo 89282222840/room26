@@ -7,3 +7,8 @@ export function tourConnectivity(items,tour){
  return items.map(i=>({id:i.id,incoming:incoming.get(i.id).length,outgoing:out.get(i.id).length,reachable:reachable.has(i.id),returnable:returnable.has(i.id),complete:reachable.has(i.id)&&returnable.has(i.id)}));
 }
 export const randomRequest=()=>Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');
+export function tourStatus(items,tour={}){
+ const count=items.length,n=count%100,word=n>=11&&n<=14?'панорам':count%10===1?'панорама':count%10>=2&&count%10<=4?'панорамы':'панорам';
+ const links=Object.values(tour.points||{}).reduce((total,list)=>total+list.length,0),connected=links>0&&tourConnectivity(items,tour).every(s=>s.complete);
+ return {count:count+' '+word,label:!links?'без переходов':connected?'тур связан':'есть разрывы',connected,links};
+}

@@ -112,6 +112,16 @@ function project_image(array $p): string {
     return '/assets/project-cover.jpg';
 }
 
+function panorama_tour_status(array $p): array {
+    $items=$p['items']['360'];$n=count($items);$mod=$n%100;$word=$mod>=11&&$mod<=14?'панорам':($n%10===1?'панорама':($n%10>=2&&$n%10<=4?'панорамы':'панорам'));
+    $ids=array_fill_keys(array_column($items,'id'),true);$out=[];$in=[];$links=0;
+    foreach($p['panorama_tour']['points']??[] as $source=>$list)foreach($list as $point){if(isset($ids[$source],$ids[$point['target']])){$out[$source][]=$point['target'];$in[$point['target']][]=(string)$source;$links++;}}
+    $start=$p['panorama_tour']['start']??null;if(!isset($ids[$start??'']))$start=$items[0]['id']??null;
+    $walk=function(array $edges)use($start):int{$seen=[];$todo=$start===null?[]:[$start];while($todo){$id=array_pop($todo);if(isset($seen[$id]))continue;$seen[$id]=true;foreach($edges[$id]??[] as $next)$todo[]=$next;}return count($seen);};
+    $connected=$links>0&&$walk($out)===$n&&$walk($in)===$n;
+    return ['count'=>$n.' '.$word,'label'=>$links===0?'без переходов':($connected?'тур связан':'есть разрывы'),'connected'=>$connected];
+}
+
 function size_label(int $bytes): string {
     foreach (['Б', 'КБ', 'МБ', 'ГБ'] as $unit) { if ($bytes < 1024 || $unit === 'ГБ') return round($bytes, $unit === 'Б' ? 0 : 1) . ' ' . $unit; $bytes /= 1024; }
     return '';

@@ -1,3 +1,4 @@
+import {tourStatus} from './panorama-tour-data.js?v=2';
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
 let clearFeedback=()=>{};
 function show(message,error=false,anchor=document.activeElement){
@@ -165,6 +166,10 @@ document.querySelectorAll('[data-tour]').forEach(button=>button.onclick=async()=
  catch(error){show(error.message,true,button);}finally{button.disabled=false;}
 });
 
-function updatePanoramaTour(project){config.project=project;const total=Object.values(project.panorama_tour?.points||{}).reduce((n,points)=>n+points.length,0);const edit=document.querySelector('#panorama-tour-edit');if(edit)edit.textContent=total?'Редактировать тур':'Создать тур';const count=document.querySelector('#panorama-tour-count');if(count)count.textContent=total?'Тур · переходов: '+total:'';const preview=document.querySelector('#panorama-tour-preview');if(preview)preview.hidden=!total;}
+function updatePanoramaTour(project){
+ config.project=project;const items=project.items['360'],summary=tourStatus(items,project.panorama_tour||{}),edit=document.querySelector('#panorama-tour-edit');
+ if(edit)edit.textContent=items.length?'Редактировать тур':'Создать тур';const count=document.querySelector('#panorama-tour-count');if(count){const state=document.createElement('span');state.className=summary.connected?'tour-status-ok':'tour-status-warning';state.textContent=summary.label;count.replaceChildren(document.createTextNode(summary.count+', '),state);}
+ const preview=document.querySelector('#panorama-tour-preview');if(preview)preview.hidden=!items.length;
+}
 document.querySelector('#panorama-tour-edit')?.addEventListener('click',async event=>{const button=event.currentTarget;button.disabled=true;try{const module=await import('./panorama-tour-editor.js?v='+config.versions.panoramaTour);const fresh=await api('get_project');config.project=fresh.project;await module.openPanoramaTourEditor({project:config.project,api,onUpdate:updatePanoramaTour});}catch(e){show(e.message,true,button);}finally{button.disabled=false;}});
 document.querySelectorAll('[data-replace-panorama]').forEach(button=>button.addEventListener('click',()=>{const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.onchange=async()=>{const file=input.files[0];if(!file||busy)return;busy=true;button.disabled=true;try{const image=await previews(file,'360'),item=config.project.items['360'].find(i=>i.id===button.dataset.replacePanorama),body=new FormData();body.set('item',item.id);body.set('source_version',item.source_version||'');body.set('file',file);body.set('thumb',image.thumb,'thumb.jpg');body.set('og',image.og,'og.jpg');await api('replace_panorama',body);busy=false;location.reload();}catch(e){show(e.message,true,button);}finally{busy=false;button.disabled=false;}};input.click();}));
