@@ -1,3 +1,4 @@
+import {sortPreview,preventDragSelection} from './reorder.js?v=1';
 import {panoramaView} from './panorama.js?v=3';
 import {tourConnectivity,tourStatus,randomRequest} from './panorama-tour-data.js?v=2';
 import {panoramaPreviews,panoramaInfo} from './panorama-files.js?v=1';
@@ -58,19 +59,19 @@ export async function openPanoramaTourEditor({project,api,onUpdate}){
  angle.addEventListener('close',()=>{arrivalToken++;arrival?.dispose();arrival=null;editing=null;angleSurface.replaceChildren();});
  function coords(x,y){return view?.raw.mouseEventToCoords({clientX:x,clientY:y});}
  function inside(x,y){const r=surface.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;}
- function startDrag(candidate){if(conflict||working||cameraEditing||candidate.meta.point&&!view)return;candidate.active=true;candidate.hotspot=candidate.meta.point?view.raw.getConfig().hotSpots.find(point=>point.id===candidate.meta.point.id):null;view?.raw.stopMovement();candidate.ghost=el('div','pano-tour-drag-ghost','●');dialog.append(candidate.ghost);candidate.ghost.style.left=candidate.x+'px';candidate.ghost.style.top=candidate.y+'px';dragFrame=requestAnimationFrame(autoPan);}
+ function startDrag(candidate){if(conflict||working||cameraEditing||candidate.meta.point&&!view)return;candidate.active=true;if(candidate.meta.target)candidate.sort=sortPreview(tiles,tileMap.get(candidate.meta.target));candidate.hotspot=candidate.meta.point?view.raw.getConfig().hotSpots.find(point=>point.id===candidate.meta.point.id):null;view?.raw.stopMovement();candidate.ghost=el('div','pano-tour-drag-ghost','●');if(candidate.meta.target){candidate.ghost.textContent='';candidate.ghost.classList.add('pano-tile-drag-ghost');const image=tileMap.get(candidate.meta.target).querySelector('img').cloneNode();candidate.ghost.append(image);}dialog.append(candidate.ghost);candidate.ghost.style.left=candidate.x+'px';candidate.ghost.style.top=candidate.y+'px';dragFrame=requestAnimationFrame(autoPan);}
  function autoPan(time){if(!drag?.active)return;const r=surface.getBoundingClientRect(),dt=Math.min((time-(drag.time||time))/1000,.04);drag.time=time;
   markDrop(drag);
   if(inside(drag.x,drag.y)&&view&&drag.meta.target!==current?.id){const zone=Math.min(55,r.width*.16,r.height*.18);let yaw=0,pitch=0;if(drag.x<r.left+zone)yaw=-(r.left+zone-drag.x)/zone;else if(drag.x>r.right-zone)yaw=(drag.x-r.right+zone)/zone;if(drag.y<r.top+zone)pitch=(r.top+zone-drag.y)/zone;else if(drag.y>r.bottom-zone)pitch=-(drag.y-r.bottom+zone)/zone;view.raw.lookAt(Math.max(-85,Math.min(85,view.raw.getPitch()+pitch*35*dt)),view.raw.getYaw()+yaw*45*dt,view.raw.getHfov(),false);if(drag.hotspot){const c=coords(drag.x,drag.y);drag.hotspot.pitch=c[0];drag.hotspot.yaw=c[1];}}
   dragFrame=requestAnimationFrame(autoPan);
  }
- function move(x,y,event){if(!drag)return;drag.x=x;drag.y=y;if(!drag.active&&Math.hypot(x-drag.startX,y-drag.startY)>7){clearTimeout(drag.timer);if(!drag.touch||drag.meta.point&&drag.held)startDrag(drag);else{drag=null;return;}}if(drag?.active){event.preventDefault();event.stopPropagation();drag.ghost.style.left=x+'px';drag.ghost.style.top=y+'px';}}
- function finish(cancelled=false){if(!drag)return;const d=drag;if(d.active)markDrop(d);drag=null;clearTimeout(d.timer);cancelAnimationFrame(dragFrame);d.ghost?.remove();clearDrop();if(!d.active){if(!cancelled&&Math.hypot(d.x-d.startX,d.y-d.startY)<7){if(d.meta.point&&d.held)d.hold();else d.tap();}return;}if(!cancelled&&d.meta.target&&d.drop){reorder(d.meta.target,d.drop);return;}if(cancelled||!inside(d.x,d.y)||d.meta.target===current?.id){if(d.meta.point)selectPreservingView();return;}const c=coords(d.x,d.y);if(!c)return;const pitch=Math.max(-90,Math.min(90,c[0])),yaw=((c[1]+180)%360+360)%360-180;
+ function move(x,y,event){if(!drag)return;drag.x=x;drag.y=y;if(!drag.active&&Math.hypot(x-drag.startX,y-drag.startY)>7){clearTimeout(drag.timer);if(!drag.touch||drag.meta.point&&drag.held)startDrag(drag);else{drag.unlock?.();drag=null;return;}}if(drag?.active){event.preventDefault();event.stopPropagation();drag.ghost.style.left=x+'px';drag.ghost.style.top=y+'px';}}
+ function finish(cancelled=false){if(!drag)return;const d=drag;if(d.active)markDrop(d);drag=null;clearTimeout(d.timer);cancelAnimationFrame(dragFrame);d.ghost?.remove();d.unlock?.();clearDrop();if(!d.active){if(!cancelled&&Math.hypot(d.x-d.startX,d.y-d.startY)<7){if(d.meta.point&&d.held)d.hold();else d.tap();}return;}if(!cancelled&&d.meta.target&&d.drop){const order=d.sort?.finish(true);reorder(order);return;}d.sort?.finish(false);if(cancelled||!inside(d.x,d.y)||d.meta.target===current?.id){if(d.meta.point)selectPreservingView();return;}const c=coords(d.x,d.y);if(!c)return;const pitch=Math.max(-90,Math.min(90,c[0])),yaw=((c[1]+180)%360+360)%360-180;
   if(d.meta.point){Object.assign(d.meta.point,{pitch,yaw});changed();selectPreservingView();}
   else{let id;do{id=randomRequest().slice(0,6);}while(Object.values(data.points).some(points=>points.some(point=>point.id===id)));openAngle({id,target:d.meta.target,pitch,yaw},current.id,true);}
  }
  function bindDrag(node,meta,tap,hold=()=>{}){
-  function begin(x,y,touch,event){if(drag||conflict||working||cameraEditing)return;if(event.target.closest('button'))return;drag={meta,tap,hold,x,y,startX:x,startY:y,touch,active:false,held:false};if(touch||meta.point)drag.timer=setTimeout(()=>{if(!drag)return;drag.held=true;if(!meta.point)startDrag(drag);},350);if(meta.point){event.stopPropagation();if(!touch)event.preventDefault();}}
+  function begin(x,y,touch,event){if(drag||conflict||working||cameraEditing)return;if(event.target.closest('button'))return;drag={meta,tap,hold,x,y,startX:x,startY:y,touch,active:false,held:false,unlock:preventDragSelection()};if(touch||meta.point)drag.timer=setTimeout(()=>{if(!drag)return;drag.held=true;if(!meta.point)startDrag(drag);},350);if(meta.point){event.stopPropagation();if(!touch)event.preventDefault();}}
   node.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch'&&e.button===0)begin(e.clientX,e.clientY,false,e);},true);
   node.addEventListener('touchstart',e=>{if(e.touches.length===1)begin(e.touches[0].clientX,e.touches[0].clientY,true,e);},{passive:false,capture:true});
   node.addEventListener('click',e=>{if(!e.target.closest('button')){e.preventDefault();e.stopPropagation();}},true);
@@ -121,15 +122,13 @@ export async function openPanoramaTourEditor({project,api,onUpdate}){
  function clearDrop(){stage.classList.remove('is-point-drop');for(const tile of tileMap.values())tile.classList.remove('pano-drop-before','pano-drop-after');}
  function markDrop(candidate){
   clearDrop();candidate.drop=null;if(!candidate.meta.target)return;stage.classList.toggle('is-point-drop',inside(candidate.x,candidate.y)&&candidate.meta.target!==current?.id);
-  const r=tiles.getBoundingClientRect();if(candidate.x<r.left||candidate.x>r.right||candidate.y<r.top||candidate.y>r.bottom)return;
+  const r=tiles.getBoundingClientRect();if(candidate.x<r.left||candidate.x>r.right||candidate.y<r.top||candidate.y>r.bottom){candidate.sort?.reset();return;}
   const edge=36;if(candidate.y<r.top+edge)tiles.scrollTop-=8;else if(candidate.y>r.bottom-edge)tiles.scrollTop+=8;
-  const target=document.elementsFromPoint(candidate.x,candidate.y).map(node=>node.closest?.('.pano-tour-tile')).find(node=>node&&tiles.contains(node));
-  if(target){const box=target.getBoundingClientRect(),after=candidate.x>box.left+box.width/2;candidate.drop={id:target.dataset.panorama,after};target.classList.add(after?'pano-drop-after':'pano-drop-before');}
-  else if(items.length)candidate.drop={id:items[items.length-1].id,after:true};
+  candidate.drop=candidate.sort?.at(candidate.x,candidate.y)||false;
  }
- async function reorder(id,drop){
-  if(id===drop.id)return;const order=items.map(i=>i.id).filter(value=>value!==id),index=order.indexOf(drop.id);if(index<0)return;order.splice(index+(drop.after?1:0),0,id);
-  if(order.every((value,index)=>items[index].id===value))return;await manage('reorder',{type:'360',order:JSON.stringify(order)});
+ async function reorder(order){
+  if(!order||order.every((value,index)=>items[index].id===value))return;
+  if(!await manage('reorder',{type:'360',order:JSON.stringify(order)}))buildTiles();
  }
  function closeMenu(){menu?.remove();menu=null;}
  function openMenu(item,anchor){
@@ -143,6 +142,7 @@ export async function openPanoramaTourEditor({project,api,onUpdate}){
  }
  function askName(item){return new Promise(resolve=>{const modal=el('dialog','dialog pano-rename-dialog'),form=el('form'),label=el('label','','Название панорамы'),input=el('input'),actions=el('div','actions');input.value=item.name;input.maxLength=200;input.required=true;label.append(input);const save=button('Сохранить',null);save.type='submit';actions.append(save,button('Отмена',()=>modal.close()));form.append(el('h2','','Переименовать панораму'),label,actions);modal.append(form);document.body.append(modal);let value=null;form.onsubmit=event=>{event.preventDefault();if(!input.value.trim())return;value=input.value.trim();modal.close();};modal.onclose=()=>{modal.remove();resolve(value);};modal.showModal();input.select();});}
  dialog.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('.pano-tour-more'))closeMenu();},true);
+ dialog.addEventListener('contextmenu',event=>{if(event.target.closest('.pano-tour-tile,.pano-edit-hotspot'))event.preventDefault();});
  dialog.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu){event.preventDefault();event.stopPropagation();closeMenu();}},true);
  const frameObserver=new ResizeObserver(fitCamera);frameObserver.observe(stage);
  function fitCamera(){

@@ -1,3 +1,4 @@
+import {sortPreview} from './reorder.js?v=1';
 import {tourStatus} from './panorama-tour-data.js?v=2';
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
 let clearFeedback=()=>{};
@@ -93,13 +94,18 @@ if(renameDialog){
 async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
 document.querySelectorAll('.object-list').forEach(list=>{
  list.style.overflowAnchor='none';
- let dragged=null;
- list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle'),tile=event.target.closest('.photo-tile');if(!handle&&!tile){event.preventDefault();return;}if(!handle&&event.target.closest('button')){event.preventDefault();return;}dragged=(handle||tile).closest('.object-row,.photo-tile');dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.clearData();event.dataTransfer.setData('application/x-room26-reorder',dragged.dataset.id);event.dataTransfer.setData('text/plain',dragged.dataset.id);});
- list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();const target=event.target.closest('.object-row,.photo-tile');if(target&&target!==dragged){const rect=target.getBoundingClientRect();list.insertBefore(dragged,(list.classList.contains('photo-admin-grid')?event.clientX<rect.left+rect.width/2:event.clientY<rect.top+rect.height/2)?target:target.nextSibling);}});
- list.addEventListener('drop',async event=>{if(!dragged)return;event.preventDefault();const handle=dragged.querySelector('.drag-handle');dragged.classList.remove('dragging');dragged=null;await persist(list,handle);});
- list.addEventListener('dragend',()=>{dragged?.classList.remove('dragging');dragged=null;});
- // Touch drag uses the same handle; native HTML drag remains available on desktop.
- list.querySelectorAll('.drag-handle').forEach(handle=>{let touchRow=null,changed=false;handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')return;touchRow=handle.closest('.object-row,.photo-tile');changed=false;handle.setPointerCapture(event.pointerId);touchRow.classList.add('dragging');});handle.addEventListener('pointermove',event=>{if(!touchRow)return;const target=document.elementsFromPoint(event.clientX,event.clientY).map(el=>el.closest('.object-row,.photo-tile')).find(row=>row&&row!==touchRow&&row.parentElement===list);if(target){const rect=target.getBoundingClientRect();list.insertBefore(touchRow,(list.classList.contains('photo-admin-grid')?event.clientX<rect.left+rect.width/2:event.clientY<rect.top+rect.height/2)?target:target.nextSibling);changed=true;}});const end=()=>{if(touchRow){touchRow.classList.remove('dragging');touchRow=null;if(changed)persist(list,handle);}};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);});
+ let dragged=null,preview=null;
+ function stop(commit){if(!dragged)return;const row=dragged,changed=preview?.changed();preview?.finish(commit);preview=null;row.classList.remove('dragging');dragged=null;if(commit&&changed)persist(list,row.querySelector('.drag-handle'));}
+ list.addEventListener('dragstart',event=>{const handle=event.target.closest('.drag-handle'),tile=event.target.closest('.photo-tile');if(!handle&&!tile){event.preventDefault();return;}if(!handle&&event.target.closest('button')){event.preventDefault();return;}dragged=(handle||tile).closest('.object-row,.photo-tile');preview=sortPreview(list,dragged);dragged.classList.add('dragging');event.dataTransfer.effectAllowed='move';event.dataTransfer.clearData();event.dataTransfer.setData('application/x-room26-reorder',dragged.dataset.id);event.dataTransfer.setData('text/plain',dragged.dataset.id);});
+ list.addEventListener('dragover',event=>{if(!dragged)return;event.preventDefault();preview?.at(event.clientX,event.clientY);});
+ list.addEventListener('drop',event=>{if(!dragged)return;event.preventDefault();preview?.at(event.clientX,event.clientY);stop(true);});
+ list.addEventListener('dragend',()=>stop(false));
+ list.querySelectorAll('.drag-handle').forEach(handle=>{
+  handle.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse'||dragged)return;event.preventDefault();dragged=handle.closest('.object-row,.photo-tile');preview=sortPreview(list,dragged);handle.setPointerCapture(event.pointerId);dragged.classList.add('dragging');});
+  handle.addEventListener('pointermove',event=>{if(!dragged||event.pointerType==='mouse')return;event.preventDefault();preview?.at(event.clientX,event.clientY);});
+  handle.addEventListener('pointerup',event=>{if(event.pointerType==='mouse')return;const r=list.getBoundingClientRect(),inside=event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom;if(inside)preview?.at(event.clientX,event.clientY);stop(inside);});
+  handle.addEventListener('pointercancel',event=>{if(event.pointerType!=='mouse')stop(false);});handle.addEventListener('lostpointercapture',event=>{if(event.pointerType!=='mouse')stop(false);});
+ });
  list.querySelectorAll('[data-move]').forEach(button=>button.onclick=async()=>{const row=button.closest('.object-row');if(button.dataset.move==='up'&&row.previousElementSibling)list.insertBefore(row,row.previousElementSibling);else if(button.dataset.move==='down'&&row.nextElementSibling)list.insertBefore(row.nextElementSibling,row);else return;await persist(list,button);});
 });
 
