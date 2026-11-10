@@ -10,7 +10,7 @@ export async function loadPannellum(){
 export async function panoramaView(container,url,options={}){
  await loadPannellum();const profile=()=>container.clientWidth<=767?'mobile':'desktop';let mode=profile();
  const defaultView=()=>({yaw:0,pitch:0,hfov:100}),initial=options.view||options.views?.[mode]||defaultView();
- const raw=window.pannellum.viewer(container,{type:'equirectangular',panorama:url,autoLoad:true,showControls:!options.editor,showFullscreenCtrl:!options.editor,minHfov:10,maxHfov:120,yaw:initial.yaw,pitch:initial.pitch,hfov:initial.hfov,strings:{loadingLabel:'Загрузка…',bylineLabel:'',noPanoramaError:'Не удалось загрузить панораму.'}});
+ const raw=window.pannellum.viewer(container,{type:'equirectangular',panorama:url,autoLoad:true,showControls:!options.editor&&options.controls!==false,showFullscreenCtrl:!options.editor&&options.controls!==false,minHfov:10,maxHfov:120,yaw:initial.yaw,pitch:initial.pitch,hfov:initial.hfov,strings:{loadingLabel:'Загрузка…',bylineLabel:'',noPanoramaError:'Не удалось загрузить панораму.'}});
  let observer,disposed=false,viewTimer=0;
  function notifyView(){if(!disposed&&options.onViewChange)options.onViewChange({yaw:raw.getYaw(),pitch:raw.getPitch(),hfov:raw.getHfov()});}
  function queueView(){if(disposed||!options.onViewChange||viewTimer)return;viewTimer=setTimeout(()=>{viewTimer=0;notifyView();},350);}

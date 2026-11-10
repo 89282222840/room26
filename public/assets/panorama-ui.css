@@ -1,0 +1,41 @@
+@font-face{font-family:Room26Inter;src:url('/assets/fonts/InterVariable.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
+.panorama-page{font-family:Room26Inter,Inter,Arial,sans-serif;--pano-ink:#1c232b;--pano-accent:#7b00ff}
+.panorama-page .panorama-title{left:50%;top:auto;bottom:calc(130px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 60px);max-height:20vh;width:max-content;background:transparent;border:0;border-radius:0;padding:0;color:#fff;text-align:center;font:400 32px/39px Room26Inter,Inter,Arial,sans-serif;text-shadow:0 4px 4px #0004;overflow-wrap:anywhere}
+.panorama-page .panorama-controls{bottom:calc(40px + env(safe-area-inset-bottom,0px));gap:12px;flex-wrap:nowrap;width:max-content}
+.panorama-page .panorama-controls button{margin:0;border:0;border-radius:4px;background:var(--pano-ink);color:#fff;font:400 32px/39px Room26Inter,Inter,Arial,sans-serif;padding:10px 20px 11px;box-shadow:none}
+.panorama-page .panorama-icon-button{display:block;flex:none;padding:0!important;border:0!important;border-radius:0;background:transparent!important;line-height:0;cursor:pointer}
+.panorama-icon-button picture,.panorama-icon-button img{display:block;max-width:none;width:auto;height:auto}
+.panorama-page .panorama-back,.panorama-picker-close{position:fixed;left:calc(60px + env(safe-area-inset-left,0px));top:calc(40px + env(safe-area-inset-top,0px));z-index:5;width:60px;height:60px}
+.panorama-picker{position:fixed;inset:0;box-sizing:border-box;width:100%;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;background:transparent;color:#fff;overflow:hidden;--pano-ink:#1c232b;--pano-accent:#7b00ff;font-family:Room26Inter,Inter,Arial,sans-serif}
+.panorama-picker::backdrop{background:transparent}
+.panorama-picker-shade{position:absolute;inset:0;background:rgba(0,0,0,.1);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:1;transition:opacity 240ms ease,backdrop-filter 240ms ease}
+.panorama-picker-close{z-index:3}
+.panorama-sheet{position:absolute;bottom:0;left:50%;width:min(1140px,100%);height:auto;max-height:60dvh;background:var(--pano-ink);border-radius:20px 20px 0 0;overflow:hidden;transform:translate(-50%,var(--sheet-offset,0px));transition:transform 240ms cubic-bezier(.2,.7,.2,1);display:flex;flex-direction:column;will-change:transform}
+.panorama-sheet-handle{height:60px;flex:none;display:flex;justify-content:center;align-items:flex-start;padding-top:20px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.panorama-sheet-handle span{display:block;width:40px;height:4px;border-radius:5px;background:#e3e5e8}
+.panorama-sheet-scroll{flex:0 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;padding:0 60px calc(30px + env(safe-area-inset-bottom,0px));scrollbar-width:none}
+.panorama-sheet-scroll::-webkit-scrollbar{display:none}
+.panorama-picker-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-content:start;grid-auto-rows:max-content}
+.panorama-picker .select-item{display:block;position:relative;width:100%;min-width:0;min-height:0;height:0;padding:50% 0 0;margin:0;border:0;border-radius:6px;background:var(--pano-ink);overflow:hidden;color:#fff;cursor:pointer;text-align:left;font-weight:400;filter:none}
+.panorama-picker .select-item img{position:absolute;inset:0;display:block;width:100%;height:100%;aspect-ratio:2;object-fit:cover;border-radius:6px;pointer-events:none}
+.panorama-picker .select-item::after{content:'';position:absolute;inset:0;border:2px solid transparent;border-radius:6px;pointer-events:none}
+@media(hover:hover){.panorama-picker .select-item:hover::after{border-color:#f3f5f8}}
+.panorama-picker .select-item[aria-current=true]::after{border-color:var(--pano-accent)}
+.panorama-picker .select-item span{position:absolute;left:12px;bottom:8px;max-width:calc(100% - 24px);padding:4px 6px;border-radius:6px;background:var(--pano-ink);color:#fff;font:400 16px/19px Room26Inter,Inter,Arial,sans-serif;text-shadow:0 4px 4px #0004;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.panorama-picker .select-item[aria-current=true] span{background:var(--pano-accent)}
+.panorama-picker.is-opening .panorama-sheet,.panorama-picker.is-closing .panorama-sheet{transform:translate(-50%,100%)}
+.panorama-picker.is-opening .panorama-picker-shade,.panorama-picker.is-closing .panorama-picker-shade{opacity:0;backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0)}
+.panorama-picker.is-dragging .panorama-sheet,.panorama-picker.is-dragging .panorama-picker-shade{transition:none}
+.panorama-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+@media(max-width:767px){
+ .panorama-page .panorama-title{bottom:calc(90px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 60px);font-size:16px;line-height:19px}
+ .panorama-page .panorama-controls{bottom:calc(30px + env(safe-area-inset-bottom,0px));gap:8px}
+ .panorama-page .panorama-controls button{font-size:20px;line-height:24px;padding:8px 12px}
+ .panorama-page .panorama-back,.panorama-picker-close{left:calc(30px + env(safe-area-inset-left,0px));top:calc(30px + env(safe-area-inset-top,0px));width:40px;height:40px}
+ .panorama-sheet{width:100%;height:auto;max-height:calc(100dvh - 100px);border-radius:12px 12px 0 0}
+ .panorama-sheet-handle{height:40px;padding-top:8px}
+ .panorama-sheet-scroll{padding-left:30px;padding-right:31px}
+ .panorama-picker-grid{grid-template-columns:minmax(0,1fr)}
+ .panorama-picker .select-item span{padding-left:8px;padding-right:8px}
+}
+@media(prefers-reduced-motion:reduce){.panorama-sheet,.panorama-picker-shade{transition:none}}
