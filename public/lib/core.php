@@ -96,6 +96,15 @@ function photo_project(array $p): array { $p['items']['doc']=$p['items']['photo'
 function photo_filename(array $p,array $item): string { return document_filename(photo_project($p),$item); }
 function photo_caption(array $item): string { return $item['name'] ?: (pathinfo($item['filename'],PATHINFO_FILENAME) ?: $item['filename']); }
 function item_url(array $p, string $type, array $item): string { if($type==='photo')return '/pro/'.$p['id'].'/photo/'.rawurlencode(photo_filename($p,$item)); return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
+function asset_filename(string $type,array $item,string $kind): string {
+    $id=$item['id'];$default=$id.($kind==='edges'?'-edges.bin':($kind==='source'?'.'.$item['extension']:'-'.$kind.'.jpg'));
+    if(!in_array($type,['360','3d'],true))return $default;
+    $ext=$type==='3d'?'glb':'(?:jpg|png|webp)';
+    if($kind==='source'&&!empty($item['source_file'])&&preg_match('/^'.$id.'-[a-f0-9]{12}\.'.$ext.'$/D',$item['source_file']))return $item['source_file'];
+    if(in_array($kind,['thumb','og'],true)&&!empty($item['preview_file'])&&preg_match('/^'.$id.'-[a-f0-9]{12}$/D',$item['preview_file']))return $item['preview_file'].'-'.$kind.'.jpg';
+    if($kind==='edges'&&$type==='3d'&&!empty($item['edge_file'])&&preg_match('/^'.$id.'-[a-f0-9]{12}-edges\.bin$/D',$item['edge_file']))return $item['edge_file'];
+    return $default;
+}
 function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind==='edges'?($item['edge_revision']??null):($kind!=='source'?($item['preview_version']??null):($item['source_version']??null))],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;

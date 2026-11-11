@@ -18,11 +18,7 @@ try {
             $item=find_item($p,$type,$asset[1]);$suffix=$asset[2]??'';
             $expected=$item['id'].($suffix!==''?$suffix.'.jpg':'.'.$item['extension']);
             if($expected!==$file)fail('Файл не найден.',404);
-            $stored=$expected;
-            if($type==='360'){
-                if($suffix===''&&!empty($item['source_file'])&&preg_match('/^'.$item['id'].'-[a-f0-9]{12}\.(jpg|png|webp)$/D',$item['source_file']))$stored=$item['source_file'];
-                elseif($suffix!==''&&!empty($item['preview_file'])&&preg_match('/^'.$item['id'].'-[a-f0-9]{12}$/D',$item['preview_file']))$stored=$item['preview_file'].$suffix.'.jpg';
-            }
+            $stored=asset_filename($type,$item,$suffix===''?'source':($suffix==='-thumb'?'thumb':'og'));
             $source=project_path($p['id']).'/'.$type.'/'.$stored;$mime=$suffix!==''?'image/jpeg':$item['mime'];$disposition='inline';
         } else fail('Файл не найден.',404);
         if(!is_file($source))fail('Файл не найден.',404);

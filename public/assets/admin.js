@@ -32,10 +32,10 @@ const dialog=document.querySelector('#new-dialog'),newProjectButton=document.que
 document.querySelector('#create-form').onsubmit=async event=>{event.preventDefault();const button=event.submitter;button.disabled=true;try{const r=await api('create',new FormData(event.target));location.href='/admin/?p='+r.project.id;}catch(e){dialog.close();show(e.message,true,newProjectButton);button.disabled=false;}};
 document.querySelector('#project-settings')?.addEventListener('submit',async event=>{event.preventDefault();event.submitter.disabled=true;try{await api('save',new FormData(event.target));show('Настройки сохранены.',false,event.submitter);document.querySelector('h1').textContent=document.querySelector('#project-name').value;}catch(e){show(e.message,true,event.submitter);}finally{event.submitter.disabled=false;}});
 async function jpeg(canvas,w,h){const out=document.createElement('canvas');out.width=w;out.height=h;const ctx=out.getContext('2d');ctx.fillStyle='#dce2e8';ctx.fillRect(0,0,w,h);const scale=Math.max(w/canvas.width,h/canvas.height);const width=canvas.width*scale,height=canvas.height*scale;ctx.drawImage(canvas,(w-width)/2,(h-height)/2,width,height);return new Promise((resolve,reject)=>out.toBlob(blob=>blob?resolve(blob):reject(Error('Не удалось создать JPG-превью.')),'image/jpeg',.9));}
-async function previews(file,type){
+async function previews(file,type,initialView=null){
  const url=URL.createObjectURL(file);let view,stage,image;
  try{
-  if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js?v='+config.versions.model)).modelView(stage,url,{preview:true});image=view.canvas;}
+  if(type==='3d'){stage=document.createElement('div');stage.className='preview-stage';document.body.append(stage);view=await (await import('./model.js?v='+config.versions.model)).modelView(stage,url,{preview:true,view:initialView});image=view.canvas;}
   else{image=new Image();image.src=url;await image.decode();if(type==='360'&&Math.abs(image.width/image.height-2)>.1)throw Error('Панорама должна иметь соотношение сторон 2:1.');}
   const edges=await view?.getEdgeCache();return {thumb:await jpeg(image,400,200),og:await jpeg(image,1200,630),edges:edges?.size<=64*1024*1024?edges:null};
  }finally{view?.dispose();stage?.remove();URL.revokeObjectURL(url);}
@@ -179,3 +179,11 @@ function updatePanoramaTour(project){
 }
 document.querySelector('#panorama-tour-edit')?.addEventListener('click',async event=>{const button=event.currentTarget;button.disabled=true;try{const module=await import('./panorama-tour-editor.js?v='+config.versions.panoramaTour);const fresh=await api('get_project');config.project=fresh.project;await module.openPanoramaTourEditor({project:config.project,api,onUpdate:updatePanoramaTour});}catch(e){show(e.message,true,button);}finally{button.disabled=false;}});
 document.querySelectorAll('[data-replace-panorama]').forEach(button=>button.addEventListener('click',()=>{const input=document.createElement('input');input.type='file';input.accept='image/jpeg,image/png,image/webp';input.onchange=async()=>{const file=input.files[0];if(!file||busy)return;busy=true;button.disabled=true;try{const image=await previews(file,'360'),item=config.project.items['360'].find(i=>i.id===button.dataset.replacePanorama),body=new FormData();body.set('item',item.id);body.set('source_version',item.source_version||'');body.set('file',file);body.set('thumb',image.thumb,'thumb.jpg');body.set('og',image.og,'og.jpg');await api('replace_panorama',body);busy=false;location.reload();}catch(e){show(e.message,true,button);}finally{busy=false;button.disabled=false;}};input.click();}));
+
+document.querySelectorAll('[data-replace-model]').forEach(button=>button.addEventListener('click',()=>{
+ if(busy)return;const input=document.createElement('input');input.type='file';input.accept='.glb';
+ input.onchange=async()=>{const file=input.files[0];if(!file||busy)return;const item=config.project.items['3d'].find(item=>item.id===button.dataset.replaceModel),label=button.textContent;busy=true;button.disabled=true;uploadBusy(true);
+  try{button.textContent='Подготовка…';const image=await previews(file,'3d',item.views?.desktop),body=new FormData();body.set('item',item.id);body.set('source_size',String(item.size));body.set('source_version',item.source_version||'');body.set('file',file);body.set('thumb',image.thumb,'thumb.jpg');body.set('og',image.og,'og.jpg');if(image.edges)body.set('edge_cache',image.edges,'edges.bin');button.textContent='Загрузка…';await api('replace_model',body);busy=false;location.reload();}
+  catch(error){show(error.message,true,button);}finally{busy=false;button.disabled=false;button.textContent=label;uploadBusy(false);}
+ };input.click();
+}));

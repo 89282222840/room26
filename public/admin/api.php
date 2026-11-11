@@ -168,19 +168,36 @@ try {
             } catch (Throwable $error) { foreach (glob($prefix . '.*') ?: [] as $path) unlink($path); foreach (glob($prefix . '-*.jpg') ?: [] as $path) unlink($path);if(is_file($prefix.'-edges.bin'))unlink($prefix.'-edges.bin'); throw $error; }
         } elseif ($action === 'save_edges') {
             $id=text_field('item',6);$item=find_item($p,'3d',$id);
-            if((string)$item['size']!==text_field('source_size',30))fail('Модель изменилась. Обновите страницу.',409);
-            $prefix=project_path($p['id']).'/3d/'.$id;$temp=project_path($p['id']).'/3d/.edges-'.bin2hex(random_bytes(6));
+            if((string)$item['size']!==text_field('source_size',30)||($item['source_version']??'')!==text_field('source_version',40))fail('Модель изменилась. Обновите страницу.',409);
+            $folder=project_path($p['id']).'/3d/';$version=bin2hex(random_bytes(6));$filename=$id.'-'.$version.'-edges.bin';$target=$folder.$filename;$committed=false;
             try{
-                edge_cache_upload($temp);
-                if(!rename($temp,$prefix.'-edges.bin'))fail('Не удалось сохранить обводку.',500);
-                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=5;$stored['edge_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
-            }finally{if(is_file($temp))unlink($temp);}
+                edge_cache_upload($target);
+                foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['edge_version']=5;$stored['edge_revision']=$version;$stored['edge_file']=$filename;}unset($stored);save_project($p);$committed=true;
+                $old=$folder.asset_filename('3d',$item,'edges');if(is_file($old))unlink($old);
+            }finally{if(!$committed&&is_file($target))unlink($target);}
         } elseif ($action === 'reorder') {
             $type = text_field('type',5); if (!in_array($type,['360','3d','doc','photo'],true)) fail('Неверный раздел.');
             $ids = json_decode(text_field('order', 100000),true);
             $items = $p['items'][$type]; $old = array_column($items,'id');
             if (!is_array($ids) || count($ids)!==count($old) || count(array_unique($ids))!==count($old) || array_diff($ids,$old)) fail('Список изменился. Обновите страницу.');
             $map = array_column($items,null,'id'); $p['items'][$type]=array_map(function($id)use($map){return $map[$id];},$ids); save_project($p);
+        } elseif ($action === 'replace_model') {
+            $id=text_field('item',6);$old=find_item($p,'3d',$id);$file=uploaded('file');
+            if(($old['source_version']??'')!==text_field('source_version',40)||(string)$old['size']!==text_field('source_size',30))fail('Модель уже заменена. Обновите страницу.',409);
+            $handle=fopen($file['tmp_name'],'rb');$header=fread($handle,12);fclose($handle);
+            if(strlen($header)!==12||substr($header,0,4)!=='glTF')fail('Загрузите модель в формате GLB.');
+            $glb=unpack('Vversion/Vlength',substr($header,4));if($glb['version']!==2||$glb['length']!==(int)$file['size'])fail('Повреждённый GLB-файл.');
+            $folder=project_path($p['id']).'/3d/';$version=bin2hex(random_bytes(6));$base=$id.'-'.$version;$created=[];$committed=false;
+            try{
+                $target=$folder.$base.'.glb';$created[]=$target;if(!move_uploaded_file($file['tmp_name'],$target)||!chmod($target,0644))fail('Не удалось сохранить модель.',500);
+                foreach(['thumb'=>[400,200],'og'=>[1200,630]] as $kind=>$dimensions){$target=$folder.$base.'-'.$kind.'.jpg';$created[]=$target;jpeg_upload($kind,$target,$dimensions[0],$dimensions[1]);}
+                $hasEdges=isset($_FILES['edge_cache']);if($hasEdges){$target=$folder.$base.'-edges.bin';$created[]=$target;edge_cache_upload($target);}
+                foreach($p['items']['3d'] as &$item)if($item['id']===$id){
+                    $item['size']=(int)$file['size'];$item['mime']='model/gltf-binary';$item['extension']='glb';$item['source_file']=$base.'.glb';$item['source_version']=$version;$item['preview_file']=$base;$item['preview_version']=$version;$item['replaced']=date(DATE_ATOM);$item['tour_revision']=bin2hex(random_bytes(6));
+                    unset($item['edge_version'],$item['edge_revision'],$item['edge_file']);if($hasEdges){$item['edge_version']=5;$item['edge_revision']=$version;$item['edge_file']=$base.'-edges.bin';}
+                }unset($item);save_project($p);$committed=true;
+                foreach(['source','thumb','og','edges'] as $kind){$path=$folder.asset_filename('3d',$old,$kind);if(is_file($path))unlink($path);}
+            }finally{if(!$committed)foreach($created as $path)if(is_file($path))unlink($path);}
         } elseif ($action === 'replace_panorama') {
             $id=text_field('item',6);$old=find_item($p,'360',$id);$file=uploaded('file');$info=@getimagesize($file['tmp_name']);
             if(!$info||!in_array($info[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true)||abs($info[0]/$info[1]-2)>.1)fail('Нужна панорама JPG, PNG или WebP с соотношением 2:1.');
@@ -202,19 +219,19 @@ try {
             }
         } elseif ($action === 'save_tour') {
             $id=text_field('item',6);$item=find_item($p,'3d',$id);
-            if((string)$item['size']!==text_field('source_size',30))fail('Модель изменилась. Обновите страницу.',409);
+            if((string)$item['size']!==text_field('source_size',30)||($item['source_version']??'')!==text_field('source_version',40))fail('Модель изменилась. Обновите страницу.',409);
             if(($item['tour_revision']??'')!==text_field('tour_revision',40))fail('Тур уже изменён. Обновите страницу перед сохранением.',409);
             $tour=saved_tour();
             foreach($p['items']['3d'] as &$stored)if($stored['id']===$id){$stored['tour']=$tour;$stored['tour_revision']=bin2hex(random_bytes(6));}unset($stored);save_project($p);
         } elseif ($action === 'save_views') {
             $type=text_field('type',5);if(!in_array($type,['360','3d'],true))fail('Неверный раздел.');
-            $id=text_field('item',6);find_item($p,$type,$id);$views=saved_views($type);
+            $id=text_field('item',6);$sourceItem=find_item($p,$type,$id);if($type==='3d'&&($sourceItem['source_version']??'')!==text_field('source_version',40))fail('Модель изменилась. Обновите страницу.',409);$views=saved_views($type);
             foreach($p['items'][$type] as &$item)if($item['id']===$id)$item['views']=$views;unset($item);
             if($type==='3d'){
                 $prefix=project_path($p['id']).'/3d/'.$id;$temp=project_path($p['id']).'/3d/.preview-'.bin2hex(random_bytes(6));
                 try{
                     jpeg_upload('thumb',$temp.'-thumb.jpg',400,200);jpeg_upload('og',$temp.'-og.jpg',1200,630);
-                    if(!rename($temp.'-thumb.jpg',$prefix.'-thumb.jpg')||!rename($temp.'-og.jpg',$prefix.'-og.jpg'))fail('Не удалось обновить превью.',500);
+                    if(!rename($temp.'-thumb.jpg',project_path($p['id']).'/3d/'.asset_filename('3d',$sourceItem,'thumb'))||!rename($temp.'-og.jpg',project_path($p['id']).'/3d/'.asset_filename('3d',$sourceItem,'og')))fail('Не удалось обновить превью.',500);
                     foreach($p['items']['3d'] as &$item)if($item['id']===$id)$item['preview_version']=bin2hex(random_bytes(6));unset($item);save_project($p);
                 }finally{foreach([$temp.'-thumb.jpg',$temp.'-og.jpg'] as $file)if(is_file($file))unlink($file);}
             }else save_project($p);
@@ -251,7 +268,7 @@ try {
                 if(($p['panorama_tour']['start']??null)===$id)$p['panorama_tour']['start']=null;
                 $p['panorama_tour_revision']=bin2hex(random_bytes(6));unset($p['panorama_tour_request']);
             }
-            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-*.png')?:[],glob($prefix.'-*.webp')?:[],glob($prefix.'-edges.bin')?:[]) as $path)unlink($path);
+            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-*.png')?:[],glob($prefix.'-*.webp')?:[],glob($prefix.'-edges.bin')?:[],glob($prefix.'-*.glb')?:[],glob($prefix.'-*-edges.bin')?:[]) as $path)unlink($path);
         } else fail('Неизвестное действие.');
     }
     flock($lock,LOCK_UN);fclose($lock);$lock=null;
