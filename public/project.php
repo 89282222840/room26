@@ -3,8 +3,8 @@ declare(strict_types=1);
 require __DIR__ . '/lib/core.php';
 require __DIR__ . '/lib/documents.php';
 function panorama_control_icon(string $name): string {
-    $arrow=in_array($name,['next','previous'],true);$desktop=$arrow?64:60;$mobile=$arrow?39:40;$base='/assets/panorama-ui/';
-    return '<span class="panorama-icon-art" aria-hidden="true"><img class="panorama-icon-desktop" src="'.$base.'desktop-'.$name.'.svg" width="'.$desktop.'" height="60" alt="" draggable="false"><img class="panorama-icon-mobile" src="'.$base.'mobile-'.$name.'.svg" width="'.$mobile.'" height="40" alt="" draggable="false"></span>';
+    $arrow=in_array($name,['next','previous'],true);$desktop=$arrow?64:60;$desktopHeight=$arrow?48:60;$mobile=$arrow?39:40;$base='/assets/panorama-ui/';
+    return '<span class="panorama-icon-art" aria-hidden="true"><img class="panorama-icon-desktop" src="'.$base.'desktop-'.$name.'.svg" width="'.$desktop.'" height="'.$desktopHeight.'" alt="" draggable="false"><img class="panorama-icon-mobile" src="'.$base.'mobile-'.$name.'.svg" width="'.$mobile.'" height="40" alt="" draggable="false"></span>';
 }
 public_headers();
 try {

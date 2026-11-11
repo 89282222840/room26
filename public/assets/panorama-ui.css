@@ -1,8 +1,9 @@
 @font-face{font-family:Room26Inter;src:url('/assets/fonts/InterVariable.woff2') format('woff2');font-style:normal;font-weight:100 900;font-display:swap}
 .panorama-page{font-family:Room26Inter,Inter,Arial,sans-serif;--pano-ink:#1c232b;--pano-accent:#7b00ff}
-.panorama-page .panorama-title{left:50%;top:auto;bottom:calc(130px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 60px);max-height:20vh;width:max-content;background:transparent;border:0;border-radius:0;padding:0;color:#fff;text-align:center;font:400 32px/39px Room26Inter,Inter,Arial,sans-serif;text-shadow:0 4px 4px #0004;overflow-wrap:anywhere}
-.panorama-page .panorama-controls{bottom:calc(40px + env(safe-area-inset-bottom,0px));gap:12px;flex-wrap:nowrap;width:max-content}
-.panorama-page .panorama-controls button{margin:0;border:0;border-radius:4px;background:var(--pano-ink);color:#fff;font:400 32px/39px Room26Inter,Inter,Arial,sans-serif;padding:10px 20px 11px;box-shadow:none}
+.panorama-page .panorama-title{left:50%;top:auto;bottom:calc(140px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 60px);max-height:20vh;width:max-content;background:transparent;border:0;border-radius:0;padding:0;color:#fff;text-align:center;font:400 24px/29px Room26Inter,Inter,Arial,sans-serif;text-shadow:0 4px 4px #0004;overflow-wrap:anywhere}
+.panorama-page .panorama-controls{bottom:calc(52px + env(safe-area-inset-bottom,0px));gap:12px;flex-wrap:nowrap;width:max-content}
+.panorama-page .panorama-controls button{margin:0;border:0;border-radius:4px;background:var(--pano-ink);color:#fff;font:400 20px/24px Room26Inter,Inter,Arial,sans-serif;height:48px;padding:12px 20px;box-shadow:none}
+.panorama-page .panorama-controls #show-list{width:78px}
 .panorama-page .panorama-icon-button{display:block;flex:none;padding:0!important;border:0!important;border-radius:0;background:transparent!important;line-height:0;cursor:pointer}
 .panorama-icon-art,.panorama-icon-button img{display:block;max-width:none}
 .panorama-icon-button .panorama-icon-mobile{display:none}
@@ -32,7 +33,8 @@
  .panorama-icon-button .panorama-icon-desktop{display:none}.panorama-icon-button .panorama-icon-mobile{display:block}
  .panorama-page .panorama-title{bottom:calc(90px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 60px);font-size:16px;line-height:19px}
  .panorama-page .panorama-controls{bottom:calc(30px + env(safe-area-inset-bottom,0px));gap:8px}
- .panorama-page .panorama-controls button{font-size:20px;line-height:24px;padding:8px 12px}
+ .panorama-page .panorama-controls button{font-size:20px;line-height:24px;height:40px;padding:8px 12px}
+ .panorama-page .panorama-controls #show-list{width:auto}
  .panorama-page .panorama-back,.panorama-picker-close{left:calc(30px + env(safe-area-inset-left,0px));top:calc(30px + env(safe-area-inset-top,0px));width:40px;height:40px}
  .panorama-sheet{width:100%;height:auto;max-height:calc(100dvh - 100px);border-radius:12px 12px 0 0}
  .panorama-sheet-handle{height:40px;padding-top:8px}
