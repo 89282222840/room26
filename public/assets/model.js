@@ -122,6 +122,7 @@ export async function modelView(container, url, options = {}) {
     function render(){
       if(disposed)return;
       if(section){const height=section.sync(Boolean(tour?.locked));if(height!==cutHeight)applyCutHeight(height);}
+      if(defaultOverviewFov&&!tour?.locked){const fov=defaultFov(camera.aspect,1);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
       if(options.adaptiveDepth!==false)updateDepth(camera);
       if(tour?.locked&&camera.near<.01){camera.near=.01;camera.updateProjectionMatrix();}
       if(mixer)scene.updateMatrixWorld(true);
@@ -134,13 +135,17 @@ export async function modelView(container, url, options = {}) {
       if(floorGrid){floorGrid.visible=Boolean(visible);applyCutHeight(cutHeight);}
       render();return Boolean(floorGrid?.visible);
     }
+    const defaultFov=(w,h)=>THREE.MathUtils.radToDeg(2*Math.atan(1/Math.sqrt(1+(w/Math.max(h,1))**2)));
+    let defaultOverviewFov=false;
     function autoView(w=container.clientWidth,h=container.clientHeight){
-      const distance=radius / Math.sin(THREE.MathUtils.degToRad(20)) * Math.max(1,h/Math.max(w,1)) * 1.15;
-      return {position:center.clone().add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance)).toArray(),target:center.toArray(),fov:40,zoom:1};
+      const fov=defaultFov(w,h),aspect=w/Math.max(h,1),halfVertical=THREE.MathUtils.degToRad(fov/2);
+      const halfAngle=Math.min(halfVertical,Math.atan(Math.tan(halfVertical)*aspect));
+      const distance=radius/Math.sin(halfAngle)*1.15;
+      return {position:center.clone().add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance)).toArray(),target:center.toArray(),fov,diagonalFov:90,zoom:1};
     }
     function setView(state){
-      state=state||autoView();
-      camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=state.fov||40;camera.zoom=state.zoom||1;
+      state=state||autoView();defaultOverviewFov=state.diagonalFov===90||!state.fov;
+      camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=defaultOverviewFov?defaultFov(container.clientWidth,container.clientHeight):state.fov;camera.zoom=state.zoom||1;
       camera.near=Math.max(radius/10000,.000001);camera.far=Math.max(camera.position.distanceTo(center)+radius*100,radius*1000);camera.updateProjectionMatrix();
       controls.update();render();
     }
