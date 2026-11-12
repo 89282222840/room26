@@ -51,7 +51,7 @@ try {
 <?php if($current&&$type==='3d'): ?><link rel="stylesheet" href="/assets/model-ui.css?v=<?=e(asset_version('model-ui.css'))?>"><?php endif ?>
 </head><body class="<?=$current?'viewer-page panorama-page'.($type==='3d'?' model-page':''):''?>">
 <?php if($current): ?>
-<div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" <?=$type==='3d'?'hidden':''?> class="viewer-title<?=$type==='360'?' panorama-title':''?>"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status" role="status">Загрузка…</div>
+<div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" <?=$type==='3d'?'hidden':''?> class="viewer-title<?=$type==='360'?' panorama-title':''?>"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status<?=$type==='3d'?' is-loading':''?>" role="status"><?php if($type==='3d'): ?>Загрузка<span class="loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span><?php else: ?>Загрузка…<?php endif ?></div>
 <?php if($type==='360'): ?>
 <?php if($showProjectLink): ?><a class="panorama-back panorama-icon-button" href="<?=e($base)?>" aria-label="Вернуться к проекту"><?=panorama_control_icon('back')?></a><?php endif ?>
 <?php if(count($items)>1): ?><nav class="viewer-controls panorama-controls" aria-label="Управление панорамой"><button type="button" id="previous" class="panorama-icon-button" aria-label="Предыдущая панорама"><?=panorama_control_icon('previous')?></button><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Вид</button><button type="button" id="next" class="panorama-icon-button" aria-label="Следующая панорама"><?=panorama_control_icon('next')?></button></nav><?php endif ?>
@@ -62,7 +62,7 @@ try {
 <div class="panorama-sheet-scroll"><div class="panorama-picker-grid"><?php foreach($items as $item): ?><button type="button" class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy" draggable="false"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></div></section></dialog>
 <?php else: ?>
 <?php if($showProjectLink): ?><a class="panorama-back panorama-icon-button" href="<?=e($base)?>" aria-label="Вернуться к проекту"><?=panorama_control_icon('back')?></a><?php endif ?>
-<nav class="viewer-controls panorama-controls model-controls" aria-label="Управление 3D-моделью">
+<nav class="viewer-controls panorama-controls model-controls" aria-label="Управление 3D-моделью" hidden>
 <?php if(count($items)>1): ?><button type="button" id="previous" class="panorama-icon-button" aria-label="Предыдущая модель"><?=panorama_control_icon('previous')?></button><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Модель</button><?php endif ?>
 <button type="button" id="floor-grid" aria-label="Размерная сетка" title="Размерная сетка" aria-pressed="false" hidden>Сетка</button>
 <?php if(count($items)>1): ?><button type="button" id="next" class="panorama-icon-button" aria-label="Следующая модель"><?=panorama_control_icon('next')?></button><?php endif ?>
