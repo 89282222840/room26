@@ -47,10 +47,11 @@ try {
 ?>
 <!doctype html><html lang="ru"><head><?php head_tags($title,$description,$image,$canonical); ?>
 
-<?php if($current&&$type==='360'): ?><link rel="stylesheet" href="/assets/panorama-ui.css?v=<?=e(asset_version('panorama-ui.css'))?>"><?php endif ?>
-</head><body class="<?=$current?'viewer-page'.($type==='360'?' panorama-page':''):''?>">
+<?php if($current): ?><link rel="stylesheet" href="/assets/panorama-ui.css?v=<?=e(asset_version('panorama-ui.css'))?>"><?php endif ?>
+<?php if($current&&$type==='3d'): ?><link rel="stylesheet" href="/assets/model-ui.css?v=<?=e(asset_version('model-ui.css'))?>"><?php endif ?>
+</head><body class="<?=$current?'viewer-page panorama-page'.($type==='3d'?' model-page':''):''?>">
 <?php if($current): ?>
-<div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" class="viewer-title<?=$type==='360'?' panorama-title':''?>"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status" role="status">Загрузка…</div>
+<div id="viewer" class="viewer" aria-label="<?=e($type==='360'?'Просмотр панорамы':'Просмотр 3D-модели')?>"></div><div id="object-title" <?=$type==='3d'?'hidden':''?> class="viewer-title<?=$type==='360'?' panorama-title':''?>"><?=e($current['name'])?></div><div id="viewer-status" class="viewer-status" role="status">Загрузка…</div>
 <?php if($type==='360'): ?>
 <?php if($showProjectLink): ?><a class="panorama-back panorama-icon-button" href="<?=e($base)?>" aria-label="Вернуться к проекту"><?=panorama_control_icon('back')?></a><?php endif ?>
 <?php if(count($items)>1): ?><nav class="viewer-controls panorama-controls" aria-label="Управление панорамой"><button type="button" id="previous" class="panorama-icon-button" aria-label="Предыдущая панорама"><?=panorama_control_icon('previous')?></button><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Вид</button><button type="button" id="next" class="panorama-icon-button" aria-label="Следующая панорама"><?=panorama_control_icon('next')?></button></nav><?php endif ?>
@@ -60,8 +61,17 @@ try {
 <section class="panorama-sheet"><h2 id="panorama-picker-title" class="panorama-sr-only">Выбор панорамы</h2><div class="panorama-sheet-handle" role="button" tabindex="0" aria-label="Потяните вниз, чтобы закрыть список панорам"><span></span></div>
 <div class="panorama-sheet-scroll"><div class="panorama-picker-grid"><?php foreach($items as $item): ?><button type="button" class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy" draggable="false"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></div></section></dialog>
 <?php else: ?>
-<?php if($showProjectLink || count($items)>1 || $type==='3d'): ?><nav class="viewer-controls<?=$type==='3d'?' model-controls':''?>" aria-label="Управление просмотром"><?php if($showProjectLink): ?><a class="button secondary" href="<?=e($base)?>">Проект</a><?php endif ?><?php if(count($items)>1): ?><button id="previous" aria-label="Предыдущий объект">←</button><button id="next" aria-label="Следующий объект">→</button><?php endif ?><?php if(count($items)>1): ?><button id="show-list"><?=$type==='360'?'Все панорамы':'Все модели'?></button><?php endif ?><?php if($type==='3d'): ?><button id="floor-grid" aria-pressed="false" hidden>Сетка</button><?php endif ?></nav><?php endif ?>
-<dialog id="object-list" class="dialog viewer-list"><div class="section-header"><h2><?=$type==='360'?'Панорамы 360°':'3D-модели'?></h2><button class="secondary" id="close-list">Закрыть</button></div><div class="grid"><?php foreach($items as $item): ?><button class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></dialog>
+<?php if($showProjectLink): ?><a class="panorama-back panorama-icon-button" href="<?=e($base)?>" aria-label="Вернуться к проекту"><?=panorama_control_icon('back')?></a><?php endif ?>
+<nav class="viewer-controls panorama-controls model-controls" aria-label="Управление 3D-моделью">
+<?php if(count($items)>1): ?><button type="button" id="previous" class="panorama-icon-button" aria-label="Предыдущая модель"><?=panorama_control_icon('previous')?></button><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Модель</button><?php endif ?>
+<button type="button" id="floor-grid" aria-label="Размерная сетка" title="Размерная сетка" aria-pressed="false" hidden>Сетка</button>
+<?php if(count($items)>1): ?><button type="button" id="next" class="panorama-icon-button" aria-label="Следующая модель"><?=panorama_control_icon('next')?></button><?php endif ?>
+</nav>
+<dialog id="object-list" class="panorama-picker model-picker" aria-labelledby="model-picker-title">
+<div class="panorama-picker-shade" aria-hidden="true"></div>
+<button type="button" id="close-list" class="panorama-picker-close panorama-icon-button" aria-label="Закрыть выбор модели" autofocus><?=panorama_control_icon('close')?></button>
+<section class="panorama-sheet"><h2 id="model-picker-title" class="panorama-sr-only">Выбор 3D-модели</h2><div class="panorama-sheet-handle" role="button" tabindex="0" aria-label="Потяните вниз, чтобы закрыть список моделей"><span></span></div>
+<div class="panorama-sheet-scroll"><div class="panorama-picker-grid"><?php foreach($items as $item): ?><button type="button" class="select-item" data-item="<?=e($item['id'])?>" aria-current="<?=$item['id']===$current['id']?'true':'false'?>"><img width="400" height="200" src="<?=e($item['thumb'])?>" alt="" loading="lazy" draggable="false"><span><?=e($item['name'])?></span></button><?php endforeach ?></div></div></section></dialog>
 <?php endif ?>
 <?php json_script('viewer-config',['type'=>$type,'items'=>$items,'current'=>$current['id'],'panoramaTour'=>$type==='360'?($p['panorama_tour']??null):null,'projectName'=>$p['name'],'description'=>$description,'versions'=>['model'=>asset_version('model.js'),'panorama'=>asset_version('panorama.js')]]); ?><script type="module" src="/assets/viewer.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/assets/viewer.js'),0,12))?>"></script>
 <noscript><div class="viewer-status">Для просмотра включите JavaScript в браузере.</div></noscript>

@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-const MARKER_HEIGHT=.16,EYE_HEIGHT=1.44,DEFAULT_DIAGONAL=120,MAX_DIAGONAL=120;
+const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=120,MAX_DIAGONAL=120;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
  const verticalFov=diagonal=>THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(diagonal/2))/Math.sqrt(1+camera.aspect*camera.aspect)));
@@ -18,7 +18,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  const keyboardPoints=document.createElement('div');keyboardPoints.className='tour-keyboard-points';overlay.append(keyboardPoints);
  container.append(overlay);
  const circle=new THREE.PlaneGeometry(.3,.3);
- const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,uniforms:{pixelRatio:{value:renderer.getPixelRatio()},selected:{value:0},hovered:{value:0}},vertexShader:'varying vec2 markerUV;void main(){markerUV=uv*2.0-1.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:`varying vec2 markerUV;uniform float pixelRatio;uniform float selected;uniform float hovered;
+ const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,uniforms:{pixelRatio:{value:renderer.getPixelRatio()},selected:{value:0},hovered:{value:0}},vertexShader:'varying vec2 markerUV;void main(){markerUV=uv*2.0-1.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:`varying vec2 markerUV;uniform float pixelRatio;uniform float selected;uniform float hovered;
  void main(){float d=length(markerUV);float pixel=max(length(vec2(dFdx(d),dFdy(d))),0.0001);float coverage=1.0-smoothstep(1.0-pixel*.5,1.0+pixel*.5,d);if(coverage<.01)discard;float ring=smoothstep(1.0-pixel*(2.0*pixelRatio+1.0),1.0-pixel*2.0*pixelRatio,d);vec3 color=mix(vec3(0.0),mix(vec3(1.0,.85,0.0),vec3(1.0),selected),ring);float alpha=mix(mix(.3,1.0,hovered),1.0,ring)*coverage;gl_FragColor=vec4(color,alpha);}`});
  function point(id){return points.find(p=>p.id===id);}
  function base(p){return new THREE.Vector3().fromArray(p.position);}

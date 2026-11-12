@@ -3,7 +3,7 @@ import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
 import { createSectionControl } from './section.js?v=1';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=5';
+import { createTour } from './tour.js?v=6';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -38,31 +38,36 @@ function makeFloorGrid(meshes) {
       c.fromBufferAttribute(position,index?index.getX(i+2):i+2).applyMatrix4(object.matrixWorld);
       ab.subVectors(b,a);ac.subVectors(c,a);ab.cross(ac);
       if(ab.lengthSq()<1e-16 || ab.normalize().y<.98)continue;
-      for(const point of [a,b,c])vertices.push(point.x,point.y+.15,point.z);
+      for(const point of [a,b,c])vertices.push(point.x,point.y,point.z);
     }
   }
   if(!vertices.length)return null;
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
   const material=new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,side:THREE.DoubleSide,clipping:true,
+    polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
+    uniforms:{pixelRatio:{value:1}},
     vertexShader:`varying vec2 gridPosition;
       #include <clipping_planes_pars_vertex>
       void main(){gridPosition=position.xz;vec4 mvPosition=modelViewMatrix*vec4(position,1.0);gl_Position=projectionMatrix*mvPosition;
       #include <clipping_planes_vertex>
       }`,
     fragmentShader:`varying vec2 gridPosition;
+      uniform float pixelRatio;
       #include <clipping_planes_pars_fragment>
       void main(){
         #include <clipping_planes_fragment>
-        vec2 distanceToLine=abs(fract(gridPosition+0.5)-0.5);
-        vec2 pixelWidth=max(fwidth(gridPosition),vec2(0.0001));
-        vec2 coverage=1.0-smoothstep(vec2(0.005),vec2(0.005)+pixelWidth,distanceToLine);
-        float alpha=max(coverage.x,coverage.y);
+        vec2 signedDistance=fract(gridPosition+0.5)-0.5;
+        vec2 pixelWidth=max(vec2(length(vec2(dFdx(gridPosition.x),dFdy(gridPosition.x))),length(vec2(dFdx(gridPosition.y),dFdy(gridPosition.y)))),vec2(0.000001));
+        vec2 pixelDistance=signedDistance/pixelWidth;
+        float distanceToLine=abs(pixelDistance.x)<abs(pixelDistance.y)?pixelDistance.x:pixelDistance.y;
+        float alpha=clamp(pixelRatio+0.5-abs(distanceToLine),0.0,1.0);
         if(alpha<0.02)discard;
-        gl_FragColor=vec4(0.0,0.0,0.0,alpha*0.7);
+        float white=1.0-smoothstep(-0.5,0.5,distanceToLine);
+        gl_FragColor=vec4(vec3(white),alpha*0.7);
       }`
   });
-  const overlay=new THREE.Mesh(geometry,material);overlay.name='ROOM26 metric floor grid';overlay.visible=false;
+  const overlay=new THREE.Mesh(geometry,material);overlay.name='ROOM26 metric floor grid';overlay.renderOrder=2;overlay.visible=false;
   return overlay;
 }
 export async function modelView(container, url, options = {}) {
@@ -88,7 +93,7 @@ export async function modelView(container, url, options = {}) {
   const draco = new DRACOLoader(manager).setDecoderPath('/assets/vendor/three/addons/libs/draco/gltf/').setDecoderConfig({type:'js'});
   const ktx = new KTX2Loader(manager).setTranscoderPath('/assets/vendor/three/addons/libs/basis/').detectSupport(renderer);
   const loader = new GLTFLoader(manager).setDRACOLoader(draco).setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
-  let observer, mixer, edges, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, renderedFrames=0, disposed = false;
+  let observer, mixer, edges, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, interactionPaused=false, renderedFrames=0, disposed = false;
   function dispose() {
     if(disposed)return;disposed=true;cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture&&v!==mirrors?.texture)v.dispose();m.dispose();}});
@@ -127,6 +132,7 @@ export async function modelView(container, url, options = {}) {
       if(tour?.locked&&camera.near<.01){camera.near=.01;camera.updateProjectionMatrix();}
       if(mixer)scene.updateMatrixWorld(true);
       edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
+      if(floorGrid)floorGrid.material.uniforms.pixelRatio.value=renderer.getPixelRatio();
       tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;
     }
     function setFloorGrid(visible){
@@ -160,9 +166,9 @@ export async function modelView(container, url, options = {}) {
     }
     if(gltf.animations.length && !options.preview && !options.editor){mixer=new THREE.AnimationMixer(gltf.scene);mixer.clipAction(gltf.animations[0]).play();}
     const clock = new THREE.Clock();
-    function requestRender(){if(disposed||capturing||options.preview||frame)return;frame=requestAnimationFrame(tick);}
+    function requestRender(){if(disposed||capturing||interactionPaused||options.preview||frame)return;frame=requestAnimationFrame(tick);}
     function tick(){
-      frame=0;if(disposed||capturing)return;
+      frame=0;if(disposed||capturing||interactionPaused)return;
       mixer?.update(Math.min(clock.getDelta(),.1));
       const moving=tour?.update(performance.now())||false;
       const changed=tour?.locked?false:controls.update();render();
@@ -193,7 +199,14 @@ export async function modelView(container, url, options = {}) {
         renderer.setPixelRatio(ratio);renderer.setSize(oldSize.x,oldSize.y);camera.aspect=aspect;camera.updateProjectionMatrix();render();capturing=false;requestRender();
       }
     }
+    let savedInteraction=null;
+    function setInteractionPaused(paused){
+      if(disposed||interactionPaused===Boolean(paused))return;
+      interactionPaused=Boolean(paused);
+      if(interactionPaused){savedInteraction={enabled:controls.enabled,damping:controls.enableDamping};controls.enabled=false;controls.enableDamping=false;controls.update();cancelAnimationFrame(frame);frame=0;render();}
+      else{controls.enabled=savedInteraction?.enabled??true;controls.enableDamping=savedInteraction?.damping??true;savedInteraction=null;requestRender();}
+    }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {canvas:renderer.domElement,dispose,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
+    return {canvas:renderer.domElement,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }

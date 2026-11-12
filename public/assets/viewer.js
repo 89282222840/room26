@@ -3,7 +3,7 @@ import {panoramaViewFromURL,panoramaURL} from './panorama-link.js?v=1';
 const config=JSON.parse(document.querySelector('#viewer-config').textContent);
 const container=document.querySelector('#viewer'),status=document.querySelector('#viewer-status'),title=document.querySelector('#object-title'),dialog=document.querySelector('#object-list');
 const gridButton=document.querySelector('#floor-grid');
-const picker=config.type==='360'&&dialog.querySelector('.panorama-sheet')?installPanoramaPicker(dialog,document.querySelector('#show-list')):null;
+const picker=dialog.querySelector('.panorama-sheet')?installPanoramaPicker(dialog,document.querySelector('#show-list')):null;
 let active=config.items.findIndex(i=>i.id===config.current),view=null,busy=false;
 const arrows=[document.querySelector('#previous'),document.querySelector('#next')].filter(Boolean);
 function saveCameraURL(item,state){const url=panoramaURL(location.href,item.id,state);if(url&&url.href!==location.href)history.replaceState({...history.state,item:item.id},'',url.href);}
@@ -23,8 +23,10 @@ async function select(index,historyMode='push',arrival=null){
  finally{busy=false;arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }
 document.querySelector('#previous')?.addEventListener('click',()=>select(active-1));document.querySelector('#next')?.addEventListener('click',()=>select(active+1));
-document.querySelector('#show-list')?.addEventListener('click',()=>{if(picker){if(view)saveCameraURL(config.items[active],view.getView());picker.open();}else dialog.showModal();});document.querySelector('#close-list').onclick=()=>picker?picker.close():dialog.close();dialog.querySelectorAll('[data-item]').forEach(button=>button.onclick=async()=>{const index=config.items.findIndex(i=>i.id===button.dataset.item);if(picker)await picker.close();else dialog.close();if(!picker||index!==active)select(index);});
+document.querySelector('#show-list')?.addEventListener('click',()=>{if(picker){if(config.type==='360'&&view)saveCameraURL(config.items[active],view.getView());view?.setInteractionPaused?.(true);picker.open();}else dialog.showModal();});document.querySelector('#close-list').onclick=()=>picker?picker.close():dialog.close();dialog.querySelectorAll('[data-item]').forEach(button=>button.onclick=async()=>{const index=config.items.findIndex(i=>i.id===button.dataset.item);if(picker)await picker.close();else dialog.close();if(!picker||index!==active)select(index);});
 window.addEventListener('popstate',()=>{const id=new URL(location.href).searchParams.get('item')||config.current;const index=config.items.findIndex(i=>i.id===id);if(index>=0){if(busy)location.reload();else select(index,'none',config.type==='360'?panoramaViewFromURL(location.href):null);}});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>select(active,'none',config.type==='360'?panoramaViewFromURL(location.href):null),{once:true});else select(active,'none',config.type==='360'?panoramaViewFromURL(location.href):null);
 
 gridButton?.addEventListener('click',()=>{if(busy||!view)return;const enabled=view.setFloorGrid(gridButton.getAttribute('aria-pressed')!=='true');gridButton.setAttribute('aria-pressed',String(enabled));});
+
+if(picker)dialog.addEventListener('close',()=>view?.setInteractionPaused?.(false));
