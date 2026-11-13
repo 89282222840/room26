@@ -95,6 +95,7 @@ export async function modelView(container, url, options = {}) {
   const ktx = new KTX2Loader(manager).setTranscoderPath('/assets/vendor/three/addons/libs/basis/').detectSupport(renderer);
   const loader = new GLTFLoader(manager).setDRACOLoader(draco).setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
   let observer, mixer, edges, ceilings=null, navigation=null, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, interactionPaused=false, renderedFrames=0, disposed = false;
+  let firstFrameShown=false;
   let revealStarted=null,revealFinished=!options.reveal||Boolean(options.editor||options.preview),resolveReveal;
   const ready=revealFinished?Promise.resolve():new Promise(resolve=>{resolveReveal=resolve;});
   function dispose() {
@@ -139,7 +140,7 @@ export async function modelView(container, url, options = {}) {
       ceilings?.update(camera);
       edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
       if(floorGrid)floorGrid.material.uniforms.pixelRatio.value=renderer.getPixelRatio();
-      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;options.onStateChange?.();
+      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;if(!firstFrameShown&&(revealFinished||revealStarted!==null)){firstFrameShown=true;options.onFirstFrame?.();}options.onStateChange?.();
     }
     function setFloorGrid(visible){
       if(disposed)return false;
