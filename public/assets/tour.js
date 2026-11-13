@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {createWalkController} from './walk-controller.js?v=6';
+import {createWalkController} from './walk-controller.js?v=7';
 const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=120,MAX_DIAGONAL=120;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,navigation=null,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
@@ -58,7 +58,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  function enter(id){if(editor||transition||!point(id))return false;if(!navigation){walker?.notify('Не удалось подготовить прогулку. Перезагрузите страницу.');return false;}
   if(mode==='walk')return move(id);
   const spawn=navigation.stand(base(point(id)));if(!spawn){walker?.notify('В этой точке недостаточно места для прогулки.');return false;}
-  controls.enableDamping=false;controls.update();overview={...getView(),effectiveFov:camera.getEffectiveFOV(),damping:true};
+  walker?.preparePointerLook();controls.enableDamping=false;controls.update();overview={...getView(),effectiveFov:camera.getEffectiveFOV(),damping:true};
   const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion),heading=Math.atan2(-right.z,right.x),orientation=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,heading,0,'YXZ')),destination=spawn.clone().add(new THREE.Vector3(0,EYE_HEIGHT,0));
   walkDiagonal=DEFAULT_DIAGONAL;mode='enter';current=id;returnButton.hidden=false;keyboardPoints.hidden=true;
   begin({position:destination,orientation,done(){mode='walk';readAngles();look();walker?.start(spawn);renderer.domElement.focus({preventScroll:true});emit();}});return true;
