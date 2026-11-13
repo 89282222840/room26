@@ -94,6 +94,8 @@ function document_by_filename(array $p, string $filename): array {
 }
 function photo_project(array $p): array { $p['items']['doc']=$p['items']['photo']??[];return $p; }
 function photo_filename(array $p,array $item): string { return document_filename(photo_project($p),$item); }
+function photo_cache_version(array $item): string { return $item['source_version']??substr(hash('sha256',$item['id'].'/'.$item['size'].'/'.$item['uploaded']),0,12); }
+function photo_source_url(array $p,array $item): string { return item_url($p,'photo',$item).'?v='.rawurlencode(photo_cache_version($item)); }
 function photo_caption(array $item): string { return $item['name'] ?: (pathinfo($item['filename'],PATHINFO_FILENAME) ?: $item['filename']); }
 function item_url(array $p, string $type, array $item): string { if($type==='photo')return '/pro/'.$p['id'].'/photo/'.rawurlencode(photo_filename($p,$item)); return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
 function asset_filename(string $type,array $item,string $kind): string {
