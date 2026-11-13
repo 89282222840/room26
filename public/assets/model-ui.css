@@ -24,3 +24,4 @@
 
 
 .model-page .model-controls #model-tour[aria-pressed=true]{background:#2563eb;color:#fff}
+.model-picker .panorama-picker-close:focus{outline:none;box-shadow:none}
