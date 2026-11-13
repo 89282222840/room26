@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {createWalkController} from './walk-controller.js?v=14';
+import {createWalkController} from './walk-controller.js?v=15';
 const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=115,MAX_DIAGONAL=130;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,navigation=null,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
@@ -45,7 +45,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
   const blockers=ray.intersectObjects(surfaces,false).filter(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return h.point.y<=getCutHeight()+.001&&m?.depthWrite!==false&&m?.opacity!==0;});
   return hits.find(hit=>!blockers.some(h=>h.distance<hit.distance-.002))?.id||null;
  }
- function clearHover(){pendingHover=null;if(hovered!==null){hovered=null;requestRender();}renderer.domElement.style.cursor='';}
+ function clearHover(){pendingHover=null;walker?.previewCursor(null);if(hovered!==null){hovered=null;requestRender();}renderer.domElement.style.cursor='';}
 
  function focus(){ray.setFromCamera(new THREE.Vector2(0,0),camera);const hit=ray.intersectObjects(surfaces,false).find(h=>h.point.y<=getCutHeight()+.001&&h.distance>.15);return hit?.point.clone()||camera.position.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(Math.max(2,radius*.4)));}
  function readAngles(){camera.getWorldDirection(direction);yaw=Math.atan2(-direction.x,-direction.z);pitch=Math.asin(THREE.MathUtils.clamp(direction.y,-1,1));}
@@ -75,13 +75,13 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
   const distance=Math.max(oldOffset.length(),radius*1.8,camera.position.distanceTo(target)*1.5),elevation=THREE.MathUtils.clamp(Math.asin(oldOffset.y/Math.max(oldOffset.length(),.001)),THREE.MathUtils.degToRad(25),THREE.MathUtils.degToRad(75)),destination=target.clone().addScaledVector(back,distance*Math.cos(elevation));destination.y+=distance*Math.sin(elevation);
   walker?.stop();mode='exit';begin({position:destination,target,fov:saved.effectiveFov||saved.fov,done(){camera.fov=saved.fov;camera.zoom=saved.zoom||1;camera.updateProjectionMatrix();controls.target.copy(target);controls.enableDamping=true;controls.enabled=true;controls.update();mode='overview';current=null;overview=null;exitPressure=0;keyboardPoints.hidden=false;renderer.domElement.focus({preventScroll:true});emit();}});return true;
  }
- function update(now){if(!transition)return mode==='walk'?walker?.update(now)||false:!editor&&tourEnabled&&points.length>0&&!reducedMotion;const t=transition.duration?Math.min(1,(now-transition.start)/transition.duration):1,k=t*t*(3-2*t),job=transition;camera.position.lerpVectors(job.from,job.to,k);camera.zoom=1;camera.fov=job.toDiagonal===null?THREE.MathUtils.lerp(job.fromFov,job.fov,k):verticalFov(THREE.MathUtils.lerp(job.fromDiagonal,job.toDiagonal,k));camera.updateProjectionMatrix();
+ function update(now){if(!transition){if(mode==='walk')return walker?.update(now)||false;const cursorMoving=walker?.updateCursor(now)||false;return cursorMoving||!editor&&tourEnabled&&points.length>0&&!reducedMotion;}const t=transition.duration?Math.min(1,(now-transition.start)/transition.duration):1,k=t*t*(3-2*t),job=transition;camera.position.lerpVectors(job.from,job.to,k);camera.zoom=1;camera.fov=job.toDiagonal===null?THREE.MathUtils.lerp(job.fromFov,job.fov,k):verticalFov(THREE.MathUtils.lerp(job.fromDiagonal,job.toDiagonal,k));camera.updateProjectionMatrix();
   if(job.target){if(mode==='top')camera.quaternion.slerpQuaternions(job.fromQuaternion,job.orientation,k);else if(camera.position.distanceToSquared(job.target)>.0001)camera.lookAt(job.target);}else if(job.levelEntry)camera.rotation.set(THREE.MathUtils.lerp(job.entryPitch,0,k),job.entryYaw,0,'YXZ');else camera.quaternion.copy(job.orientation||job.fromQuaternion);
   shade.style.opacity=job.dim?String(Math.sin(Math.PI*t)*.38):'0';camera.updateMatrixWorld(true);
   if(t>=1){transition=null;shade.hidden=true;job.done();return false;}return true;
  }
  function beforeRender(){
-  if(pendingHover){const position=pendingHover;pendingHover=null;hovered=markerAt(position.x,position.y);renderer.domElement.style.cursor=hovered?'pointer':'';}
+  if(pendingHover){const position=pendingHover;pendingHover=null;hovered=markerAt(position.x,position.y);const floor=!editor&&tourEnabled&&mode==='overview'?floorAt(position.x,position.y):null,landing=floor?navigation?.stand(floor):null;walker?.previewCursor(landing);renderer.domElement.style.cursor=hovered||landing?'pointer':'';}
   for(const [id,marker]of markers){marker.visible=(editor||tourEnabled&&mode==='overview')&&(editor?point(id).position[1]:marker.position.y)<=getCutHeight()+.001;marker.material.uniforms.pulse.value=editor||reducedMotion?1:.92+.08*Math.sin(performance.now()*Math.PI/800);marker.material.uniforms.pixelRatio.value=renderer.getPixelRatio();marker.material.uniforms.selected.value=Number(id===selected);marker.material.uniforms.hovered.value=Number(id===hovered);}
   keyboardPoints.hidden=editor||!tourEnabled||mode!=='overview';
   container.classList.toggle('tour-walking',mode!=='overview');

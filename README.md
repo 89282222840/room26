@@ -124,3 +124,5 @@ Public 3D model selection uses the Model picker without previous/next arrows. Th
 When Tour is enabled, a short click/tap on any supported floor surface enters walking, including models without saved points. Public entry markers pulse gently up to 75cm diameter (motion reduced when requested). Drag and pinch gestures do not enter the tour. Walking floor-cursor placement updates every rendered pointer frame; the more costly route validation remains throttled separately to 80ms and is always repeated on click.
 
 Enabling Tour smoothly moves the camera to a fitted top view, snapping its plan orientation to the closest world-axis quarter-turn. The GLB geometry is not rotated; turning Tour off during a walk still returns to overview.
+
+The overview also shows the shared white 41cm floor cursor while hovering a valid entry surface with Tour enabled, alongside the yellow saved entry points. It clears when Tour is disabled, pointer leaves, camera dragging begins, or a transition starts.
