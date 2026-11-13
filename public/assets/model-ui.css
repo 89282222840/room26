@@ -1,12 +1,12 @@
 /* Client model controls share the panorama picker's typography, assets and gestures. */
 .model-page .model-controls{flex-wrap:nowrap;justify-content:center}
-.model-page .model-controls #show-list,.model-page .model-controls #floor-grid{width:auto;height:48px;padding:0 20px;font-size:20px;line-height:24px}
+.model-page .model-controls #show-list,.model-page .model-controls #floor-grid,.model-page .model-controls #model-tour{width:auto;height:48px;padding:0 20px;font-size:20px;line-height:24px}
 .model-page .model-controls #floor-grid[aria-pressed=true]{background:#7b00ff;color:#fff}
 .model-page .tour-return{font-family:system-ui,-apple-system,sans-serif}
 .model-page .tour-directions{bottom:128px}
 @media(max-width:767px){
  .model-page .tour-directions{bottom:110px}
- .model-page .model-controls #show-list,.model-page .model-controls #floor-grid{height:40px;padding:0 12px;font-size:16px;line-height:20px}
+ .model-page .model-controls #show-list,.model-page .model-controls #floor-grid,.model-page .model-controls #model-tour{height:40px;padding:0 12px;font-size:16px;line-height:20px}
  .model-page .model-section-control{top:auto;bottom:calc(94px + env(safe-area-inset-bottom,0px));right:calc(20px + env(safe-area-inset-right,0px))}
 }
 
@@ -22,3 +22,5 @@
 .walk-message{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 40px);padding:8px 12px;border-radius:6px;background:#101820dd;color:#fff;font-size:13px;pointer-events:none;z-index:5;text-align:center}
 @media(max-width:767px),(pointer:coarse){.walk-joystick{display:block}}
 
+
+.model-page .model-controls #model-tour[aria-pressed=true]{background:#2563eb;color:#fff}

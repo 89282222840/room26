@@ -63,9 +63,9 @@ try {
 <?php else: ?>
 <?php if($showProjectLink): ?><a class="panorama-back panorama-icon-button" href="<?=e($base)?>" aria-label="Вернуться к проекту"><?=panorama_control_icon('back')?></a><?php endif ?>
 <nav class="viewer-controls panorama-controls model-controls" aria-label="Управление 3D-моделью" hidden>
-<?php if(count($items)>1): ?><button type="button" id="previous" class="panorama-icon-button" aria-label="Предыдущая модель"><?=panorama_control_icon('previous')?></button><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Модель</button><?php endif ?>
+<?php if(count($items)>1): ?><button type="button" id="show-list" aria-haspopup="dialog" aria-controls="object-list" aria-expanded="false">Модель</button><?php endif ?>
+<button type="button" id="model-tour" aria-label="Точки виртуального тура" aria-pressed="false" hidden>Тур</button>
 <button type="button" id="floor-grid" aria-label="Размерная сетка" title="Размерная сетка" aria-pressed="false" hidden>Сетка</button>
-<?php if(count($items)>1): ?><button type="button" id="next" class="panorama-icon-button" aria-label="Следующая модель"><?=panorama_control_icon('next')?></button><?php endif ?>
 </nav>
 <dialog id="object-list" class="panorama-picker model-picker" aria-labelledby="model-picker-title">
 <div class="panorama-picker-shade" aria-hidden="true"></div>

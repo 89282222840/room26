@@ -3,7 +3,7 @@ import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
 import { createSectionControl } from './section.js?v=2';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=19';
+import { createTour } from './tour.js?v=21';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -130,7 +130,7 @@ export async function modelView(container, url, options = {}) {
       if(disposed)return;
       let height=section?.sync(Boolean(tour?.locked),!revealFinished)??Infinity;
       if(!revealFinished){const progress=revealStarted===null?0:Math.min(1,(performance.now()-revealStarted)/1000);if(progress<1){const eased=progress*progress*(3-2*progress);height=box.min.y-.001+(box.max.y-box.min.y+.002)*eased;}else{revealFinished=true;height=section?.sync(Boolean(tour?.locked),false)??Infinity;resolveReveal?.();}}
-      if(height!==cutHeight)applyCutHeight(height);
+      if((section||!revealFinished)&&height!==cutHeight)applyCutHeight(height);
       if(defaultOverviewFov&&!tour?.locked){const fov=defaultFov(camera.aspect,1);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
       if(options.adaptiveDepth!==false)updateDepth(camera);
       if(tour?.locked&&camera.near<.01){camera.near=.01;camera.updateProjectionMatrix();}
@@ -185,11 +185,11 @@ export async function modelView(container, url, options = {}) {
       scene.traverse(object=>{if(object.name.startsWith('ROOM26 tour')||object.isLine&&Array.isArray(object.userData.link))return;for(const material of(Array.isArray(object.material)?object.material:[object.material]))if(material){const changed=(material.clippingPlanes?.length||0)!==(planes?.length||0);material.clippingPlanes=planes;if(changed)material.needsUpdate=true;}});
     }
     function setCutHeight(height){applyCutHeight(height);render();}
-    if(!options.preview&&(options.tourEditor||options.tour?.points?.length)){
+    if(!options.preview&&(options.tourEditor||!options.editor)){
       if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=6');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
       tour=createTour({container,scene,model:gltf.scene,navigation,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
     }
-    if(!options.preview&&!options.editor)section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);
+    if(!options.preview&&(!options.editor||options.tourEditor))section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);
     if(section)section.sync(Boolean(tour?.locked),!revealFinished);
     if(!revealFinished)revealStarted=performance.now();
     if(!options.preview){

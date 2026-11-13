@@ -19,9 +19,8 @@ export function createWalkController({container,overlay,scene,camera,controls,ca
  function start(position){clearInput();active=true;paused=false;foot=position.clone();camera.getWorldDirection(direction);yaw=Math.atan2(-direction.x,-direction.z);pitch=Math.asin(THREE.MathUtils.clamp(direction.y,-1,1));joystick.hidden=false;setPosition(foot);if(desktop())showMessage('Используйте WASD и курсор для перемещения и обзора',5000);requestRender();}
  function stop(){active=false;clearInput();joystick.hidden=true;clearTimeout(messageTimer);messageTimer=null;message.hidden=true;messageUntil=0;cursorUntil=0;requestRender();}
  function setPaused(value){paused=Boolean(value);if(paused)clearInput();joystick.hidden=!active||paused;requestRender();}
- function screenPlan(x,y){
-  const rect=canvas.getBoundingClientRect();pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);raycaster.setFromCamera(pointer,camera);const target=navigation.pick(raycaster.ray);if(!target)return null;const path=navigation.trace(foot,target);return path?{target,path,start:foot.clone()}:null;
- }
+ function screenTarget(x,y){const rect=canvas.getBoundingClientRect();pointer.set((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2);raycaster.setFromCamera(pointer,camera);return navigation.pick(raycaster.ray);}
+ function screenPlan(x,y){const target=screenTarget(x,y);if(!target)return null;const path=navigation.trace(foot,target);return path?{target,path,start:foot.clone()}:null;}
  function placeCursor(target,tap=false){cursor.position.copy(target);cursor.visible=true;const now=performance.now();pulseUntil=now+500;cursorUntil=tap?now+500:Infinity;cursorMaterial.uniforms.phase.value=0;requestRender();}
  function go(plan,tap=false){if(!enabled()||!plan)return false;route=plan.path;routeIndex=0;placeCursor(plan.target,tap);last=performance.now();requestRender();return true;}
  function goTo(target){if(!enabled())return false;const point=target.clone?target.clone():new THREE.Vector3().fromArray(target),path=navigation.trace(foot,point);return path?go({target:point,path},true):false;}
@@ -61,7 +60,10 @@ export function createWalkController({container,overlay,scene,camera,controls,ca
   if(Math.hypot(x,y)>.06){route=null;const scale=1/Math.max(1,Math.hypot(x,y)),speed=(keys.has('ShiftLeft')||keys.has('ShiftRight')?2:1.25)*dt;foot.copy(navigation.advance(foot,(Math.cos(yaw)*x-Math.sin(yaw)*y)*scale*speed,(-Math.sin(yaw)*x-Math.cos(yaw)*y)*scale*speed));moving=true;cursor.visible=false;}
   else if(route){let remaining=3*dt;while(routeIndex<route.length&&remaining>0){const target=route[routeIndex],distance=Math.hypot(target.x-foot.x,target.z-foot.z);if(distance<=remaining+.00001){foot.copy(target);remaining-=distance;routeIndex++;}else{const t=remaining/Math.max(distance,.00001);foot.lerp(target,t);remaining=0;}}if(routeIndex>=route.length)route=null;moving=true;}
   camera.position.x=foot.x;camera.position.z=foot.z;const targetY=foot.y+EYE_HEIGHT;camera.position.y=reduced()?targetY:THREE.MathUtils.damp(camera.position.y,targetY,14,dt);const settling=Math.abs(camera.position.y-targetY)>.001;if(!settling)camera.position.y=targetY;camera.updateMatrixWorld(true);controls.target.copy(camera.position).add(camera.getWorldDirection(direction));
-  if(pendingHover&&!pointers.size&&now-lastPlanAt>=80){const pending=pendingHover;pendingHover=null;lastPlanAt=now;hoverPlan=screenPlan(pending.x,pending.y);if(hoverPlan){const changed=!cursor.visible||cursor.position.distanceToSquared(hoverPlan.target)>.0004;if(changed)placeCursor(hoverPlan.target);canvas.style.cursor='pointer';}else{cursor.visible=false;canvas.style.cursor='';}}
+  if(pendingHover&&!pointers.size){const pending=pendingHover;pendingHover=null;const target=screenTarget(pending.x,pending.y);
+   if(target){if(!hoverPlan||now-lastPlanAt>=80){lastPlanAt=now;hoverPlan={valid:Boolean(navigation.trace(foot,target))};}
+    if(hoverPlan.valid){if(!cursor.visible)placeCursor(target);else cursor.position.copy(target);canvas.style.cursor='pointer';}else{cursor.visible=false;canvas.style.cursor='';}
+   }else{hoverPlan=null;cursor.visible=false;canvas.style.cursor='';}}
   if(cursor.visible){if(now>=cursorUntil)cursor.visible=false;else{cursorMaterial.uniforms.phase.value=THREE.MathUtils.clamp(1-(pulseUntil-now)/500,0,1);}}
   if(messageUntil&&now>=messageUntil){message.hidden=true;messageUntil=0;}
   return moving||settling||Boolean(pendingHover)||cursor.visible&&now<pulseUntil;
