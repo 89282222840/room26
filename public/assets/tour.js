@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {createWalkController} from './walk-controller.js?v=16';
+import {createWalkController} from './walk-controller.js?v=17';
 const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=115,MAX_DIAGONAL=130;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,navigation=null,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
@@ -36,18 +36,18 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
   });
   emit();
  }
- function surface(clientX,clientY){setRay(clientX,clientY);for(const hit of ray.intersectObjects(surfaces,false)){if(hit.point.y>getCutHeight()+.0001||!hit.face)continue;normal.copy(hit.face.normal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));if(normal.y>.7)return hit;}return null;}
+ function surface(clientX,clientY){setRay(clientX,clientY);for(const hit of ray.intersectObjects(surfaces,false)){if(hit.object.userData.room26CeilingHidden||hit.point.y>getCutHeight()+.0001||!hit.face)continue;normal.copy(hit.face.normal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));if(normal.y>.7)return hit;}return null;}
  function setRay(x,y){const rect=renderer.domElement.getBoundingClientRect();pointer.set((x-rect.left)/rect.width*2-1,-(y-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);}
  function markerAt(x,y){
   setRay(x,y);const hits=[],position=new THREE.Vector3(),plane=new THREE.Plane(),hitRadius=editor ? .15 : .75;
   for(const [id,marker]of markers){if(!marker.visible)continue;plane.set(new THREE.Vector3(0,1,0),-marker.position.y);const hit=ray.ray.intersectPlane(plane,position);if(!hit)continue;const offset=(position.x-marker.position.x)**2+(position.z-marker.position.z)**2;if(offset<=hitRadius*hitRadius)hits.push({id,distance:ray.ray.origin.distanceTo(position),offset});}
   if(!hits.length)return null;hits.sort((a,b)=>a.distance-b.distance||a.offset-b.offset);
-  const blockers=ray.intersectObjects(surfaces,false).filter(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return h.point.y<=getCutHeight()+.001&&m?.depthWrite!==false&&m?.opacity!==0;});
+  const blockers=ray.intersectObjects(surfaces,false).filter(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return !h.object.userData.room26CeilingHidden&&h.point.y<=getCutHeight()+.001&&m?.depthWrite!==false&&m?.opacity!==0;});
   return hits.find(hit=>!blockers.some(h=>h.distance<hit.distance-.002))?.id||null;
  }
  function clearHover(){pendingHover=null;walker?.previewCursor(null);if(hovered!==null){hovered=null;requestRender();}renderer.domElement.style.cursor='';}
 
- function focus(){ray.setFromCamera(new THREE.Vector2(0,0),camera);const hit=ray.intersectObjects(surfaces,false).find(h=>h.point.y<=getCutHeight()+.001&&h.distance>.15);return hit?.point.clone()||camera.position.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(Math.max(2,radius*.4)));}
+ function focus(){ray.setFromCamera(new THREE.Vector2(0,0),camera);const hit=ray.intersectObjects(surfaces,false).find(h=>!h.object.userData.room26CeilingHidden&&h.point.y<=getCutHeight()+.001&&h.distance>.15);return hit?.point.clone()||camera.position.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(Math.max(2,radius*.4)));}
  function readAngles(){camera.getWorldDirection(direction);yaw=Math.atan2(-direction.x,-direction.z);pitch=Math.asin(THREE.MathUtils.clamp(direction.y,-1,1));}
  function look(){pitch=THREE.MathUtils.clamp(pitch,-Math.PI*.472,Math.PI*.472);camera.rotation.set(pitch,yaw,0,'YXZ');camera.updateMatrixWorld(true);controls.target.copy(camera.position).add(camera.getWorldDirection(new THREE.Vector3()));}
  function begin({position,target=null,orientation=null,fov=camera.getEffectiveFOV(),zoom=1,done}){

@@ -41,7 +41,7 @@ export function installEdges(gltf,scene,buffer){
    entries.push(entry);byGeometry.set(object.geometry,entry);
   }
   if(!entry.near.length)continue;
-  const canMerge=!gltf.animations.length&&!object.isSkinnedMesh&&!object.morphTargetInfluences;
+  const canMerge=!object.userData.room26DirectionalCeiling&&!gltf.animations.length&&!object.isSkinnedMesh&&!object.morphTargetInfluences;
   const count=object.isInstancedMesh?object.count:1;
   for(let i=0;i<count;i++){
    transform.copy(object.matrixWorld);if(object.isInstancedMesh){object.getMatrixAt(i,instance);transform.multiply(instance);}
