@@ -92,7 +92,7 @@ if(renameDialog){
  };
 }
 async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
-document.querySelectorAll('.object-list').forEach(list=>{
+document.querySelectorAll('.object-list:not(.photo-admin-grid)').forEach(list=>{
  list.style.overflowAnchor='none';
  let dragged=null,preview=null;
  function stop(commit){if(!dragged)return;const row=dragged,changed=preview?.changed();preview?.finish(commit);preview=null;row.classList.remove('dragging');dragged=null;if(commit&&changed)persist(list,row.querySelector('.drag-handle'));}
@@ -155,15 +155,7 @@ document.querySelectorAll('[data-camera]').forEach(button=>button.onclick=async(
  }catch(error){show(error.message,true,button);}finally{button.disabled=false;}
 });
 
-const captionDialog=document.querySelector('#caption-dialog');
-if(captionDialog){
- const form=document.querySelector('#caption-form'),field=document.querySelector('#photo-caption'),cancel=document.querySelector('#caption-cancel');let target;
- document.querySelectorAll('[data-caption]').forEach(button=>button.onclick=()=>{target=button;field.value=button.dataset.name;captionDialog.showModal();field.select();});
- cancel.onclick=()=>captionDialog.close();captionDialog.addEventListener('cancel',event=>{if(form.querySelector('button[type=submit]').disabled)event.preventDefault();});
- form.onsubmit=async event=>{event.preventDefault();const submit=event.submitter;submit.disabled=true;cancel.disabled=true;
-  try{const result=await api('caption',{item:target.dataset.caption,name:field.value});config.project=result.project;const item=result.project.items.photo.find(item=>item.id===target.dataset.caption),tile=target.closest('.photo-tile');tile.querySelector('.photo-tile-caption').textContent=item.name;target.dataset.name=item.name;tile.querySelector('img').alt=item.name;tile.querySelector('a').setAttribute('aria-label',item.name);tile.querySelector('.drag-handle').setAttribute('aria-label','Переместить '+item.name);captionDialog.close();target.focus({preventScroll:true});show('Подпись сохранена.',false,target);}catch(error){show(error.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
- };
-}
+if(config.project)import('./photo-admin.js?v='+config.versions.photoAdmin).then(({installPhotoAdmin})=>installPhotoAdmin({api,show,previews,getProject:()=>config.project,setProject:project=>{config.project=project;},isBusy:()=>busy,setBusy:value=>{busy=value;uploadBusy(value);}})).catch(error=>show(error.message,true));
 
 // Tour editing saves metadata without reloading or changing the page scroll.
 document.querySelectorAll('[data-tour]').forEach(button=>button.onclick=async()=>{

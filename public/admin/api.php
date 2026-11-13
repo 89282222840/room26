@@ -198,6 +198,19 @@ try {
                 }unset($item);save_project($p);$committed=true;
                 foreach(['source','thumb','og','edges'] as $kind){$path=$folder.asset_filename('3d',$old,$kind);if(is_file($path))unlink($path);}
             }finally{if(!$committed)foreach($created as $path)if(is_file($path))unlink($path);}
+        } elseif ($action === 'replace_photo') {
+            $id=text_field('item',6);$old=find_item($p,'photo',$id);$file=uploaded('file');
+            if(($old['source_version']??'')!==text_field('source_version',40)||(string)$old['size']!==text_field('source_size',30))fail('Фото уже заменено. Обновите страницу.',409);
+            $info=@getimagesize($file['tmp_name']);$types=[IMAGETYPE_JPEG=>'jpg',IMAGETYPE_PNG=>'png',IMAGETYPE_WEBP=>'webp',IMAGETYPE_GIF=>'gif'];if(defined('IMAGETYPE_AVIF'))$types[constant('IMAGETYPE_AVIF')]='avif';
+            if(!$info||!isset($types[$info[2]]))fail('Загрузите изображение JPG, PNG, WebP, GIF или AVIF.');
+            $ext=$types[$info[2]];$version=bin2hex(random_bytes(6));$folder=project_path($p['id']).'/photo/';$base=$id.'-'.$version;$created=[];$committed=false;$publicName=photo_filename($p,$old);
+            try{
+                $source=$folder.$base.'.'.$ext;$created[]=$source;if(!move_uploaded_file($file['tmp_name'],$source)||!chmod($source,0644))fail('Не удалось сохранить фото.',500);
+                foreach(['thumb'=>[400,200],'og'=>[1200,630]] as $kind=>$dimensions){$target=$folder.$base.'-'.$kind.'.jpg';$created[]=$target;jpeg_upload($kind,$target,$dimensions[0],$dimensions[1]);}
+                foreach($p['items']['photo'] as &$item)if($item['id']===$id){$item['public_filename']=$publicName;$item['size']=(int)$file['size'];$item['mime']=$info['mime'];$item['extension']=$ext;$item['width']=$info[0];$item['height']=$info[1];$item['source_file']=$base.'.'.$ext;$item['source_version']=$version;$item['preview_file']=$base;$item['preview_version']=$version;$item['uploaded']=date(DATE_ATOM);$item['replaced']=$item['uploaded'];}unset($item);
+                save_project($p);$committed=true;
+                foreach(['source','thumb','og'] as $kind){$path=$folder.asset_filename('photo',$old,$kind);if(is_file($path))unlink($path);}
+            }finally{if(!$committed)foreach($created as $path)if(is_file($path))unlink($path);}
         } elseif ($action === 'replace_panorama') {
             $id=text_field('item',6);$old=find_item($p,'360',$id);$file=uploaded('file');$info=@getimagesize($file['tmp_name']);
             if(!$info||!in_array($info[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true)||abs($info[0]/$info[1]-2)>.1)fail('Нужна панорама JPG, PNG или WebP с соотношением 2:1.');
@@ -268,7 +281,7 @@ try {
                 if(($p['panorama_tour']['start']??null)===$id)$p['panorama_tour']['start']=null;
                 $p['panorama_tour_revision']=bin2hex(random_bytes(6));unset($p['panorama_tour_request']);
             }
-            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-*.png')?:[],glob($prefix.'-*.webp')?:[],glob($prefix.'-edges.bin')?:[],glob($prefix.'-*.glb')?:[],glob($prefix.'-*-edges.bin')?:[]) as $path)unlink($path);
+            save_project($p);$prefix=project_path($p['id']).'/'.$type.'/'.$id;foreach(array_merge(glob($prefix.'.*')?:[],glob($prefix.'-*.jpg')?:[],glob($prefix.'-*.png')?:[],glob($prefix.'-*.webp')?:[],glob($prefix.'-*.gif')?:[],glob($prefix.'-*.avif')?:[],glob($prefix.'-edges.bin')?:[],glob($prefix.'-*.glb')?:[],glob($prefix.'-*-edges.bin')?:[]) as $path)unlink($path);
         } else fail('Неизвестное действие.');
     }
     flock($lock,LOCK_UN);fclose($lock);$lock=null;
