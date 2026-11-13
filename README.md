@@ -126,3 +126,5 @@ When Tour is enabled, a short click/tap on any supported floor surface enters wa
 Enabling Tour smoothly moves the camera to a fitted top view, snapping its plan orientation to the closest world-axis quarter-turn. The GLB geometry is not rotated; turning Tour off during a walk still returns to overview.
 
 The overview also shows the shared white 41cm floor cursor while hovering a valid entry surface with Tour enabled, alongside the yellow saved entry points. It clears when Tour is disabled, pointer leaves, camera dragging begins, or a transition starts.
+
+Client photo galleries use shortest-column masonry: three columns on desktop, one on mobile, with 4px gaps, original image proportions and no corner rounding. Dimensions reserve layout before lazy images load; image loading and container resizing recompute positions. DOM order and fullscreen photo navigation retain the admin order.

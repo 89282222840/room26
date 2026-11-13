@@ -122,3 +122,5 @@ html.is-sorting,html.is-sorting *{user-select:none!important;-webkit-user-select
 .sort-preview-active{overflow-anchor:none}
 
 .tour-editor-stage .model-section-control{top:auto;bottom:20px;right:20px}
+
+.photo-gallery.is-masonry{display:block;position:relative}.photo-gallery.is-masonry>.photo-gallery-link{position:absolute;top:0;left:0}
