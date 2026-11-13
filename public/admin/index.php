@@ -41,7 +41,7 @@ $labels = ['360'=>'Виртуальный тур','3d'=>'3D-модели','doc'=
 <?php foreach($p['items'][$type] as $item):$url=item_url($p,$type,$item); ?>
 <?php if($type==='photo'): ?>
 <article class="photo-tile" data-id="<?=e($item['id'])?>" data-url="<?=e($url)?>">
-<a class="photo-tile-image" href="<?=e($url)?>" target="_blank" rel="noopener" draggable="false" aria-label="<?=e(photo_caption($item))?>"><img src="<?=e(asset_url($p,'photo',$item,'thumb'))?>" width="400" height="200" loading="lazy" draggable="false" alt="<?=e(photo_caption($item))?>"><span class="photo-tile-caption pano-tour-caption"><?=e(photo_caption($item))?></span></a>
+<a class="photo-tile-image" href="<?=e($url)?>" target="_blank" rel="noopener" draggable="false" aria-label="<?=e(photo_caption($item))?>"><img src="<?=e($url.(!empty($item['source_version'])?'?v='.$item['source_version']:''))?>" width="<?=(int)($item['width']??1200)?>" height="<?=(int)($item['height']??800)?>" loading="lazy" decoding="async" draggable="false" alt="<?=e(photo_caption($item))?>"><span class="photo-tile-caption pano-tour-caption"><?=e(photo_caption($item))?></span></a>
 <button type="button" class="pano-tour-more photo-more" aria-label="<?=e('Действия: '.photo_caption($item))?>" aria-haspopup="dialog" aria-expanded="false">⋮</button>
 </article>
 <?php continue;endif ?>

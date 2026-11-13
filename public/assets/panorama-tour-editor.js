@@ -1,4 +1,4 @@
-import {sortPreview,preventDragSelection} from './reorder.js?v=1';
+import {sortPreview,preventDragSelection} from './reorder.js?v=2';
 import {panoramaView} from './panorama.js?v=3';
 import {tourConnectivity,tourStatus,randomRequest} from './panorama-tour-data.js?v=2';
 import {panoramaPreviews,panoramaInfo} from './panorama-files.js?v=1';

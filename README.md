@@ -35,7 +35,7 @@ Saving a model view automatically renders new 400×200 and 1200×630 JPEG previe
 
 ## Photos
 
-Photos accept JPG, PNG, WebP, GIF and AVIF images. Browser-generated JPEG thumbnails appear in an admin grid with five desktop or three mobile columns. Captions and drag ordering are saved per project. Public galleries use original images across the full viewport width, with three desktop columns and one mobile column, 4 px gaps and square corners. Clicking opens a viewport-filling viewer with desktop arrows, keyboard navigation and mobile swipes. Captions are white, bottom-left, 13 px in galleries and fullscreen viewing on all devices.
+Photos accept JPG, PNG, WebP, GIF and AVIF images. Admin galleries lazily show original images in full-proportion masonry with three desktop or two mobile columns; JPEG thumbnails and OG previews are also generated on upload. Captions and drag ordering are saved per project. Public galleries use original images across the full viewport width, with three desktop columns and one mobile column, 4 px gaps and square corners. Clicking opens a viewport-filling viewer with desktop arrows, keyboard navigation and mobile swipes. Captions are white, bottom-left, 13 px in galleries and fullscreen viewing on all devices.
 
 ## Metric floor grid
 
@@ -129,4 +129,6 @@ The overview also shows the shared white 41cm floor cursor while hovering a vali
 
 Client photo galleries use shortest-column masonry: three columns on desktop, one on mobile, with 4px gaps, original image proportions and no corner rounding. Dimensions reserve layout before lazy images load; image loading and container resizing recompute positions. DOM order and fullscreen photo navigation retain the admin order.
 
-Admin photos use panorama-style 2:1 tiles in five desktop / three mobile columns. The entire image drags (350ms hold on touch), with animated reorder previews and selection suppression. A top-right ellipsis opens file size / Moscow upload date above Rename, Open, Replace and Delete. File drops anywhere in the photo section add images. Photo replacement writes versioned source/preview files atomically, retains the caption, item ID, order and public filename across format changes, updates upload date/dimensions/MIME, rejects stale requests and rolls back failed previews.
+Admin photos use full-proportion masonry tiles in three desktop / two mobile columns, loading the original images lazily so existing photos need no re-upload. The entire image drags (350ms hold on touch), with animated reorder previews and selection suppression. A top-right ellipsis opens file size / Moscow upload date above Rename, Open, Replace and Delete. File drops anywhere in the photo section add images. Photo replacement writes versioned source/preview files atomically, retains the caption, item ID, order and public filename across format changes, updates upload date/dimensions/MIME, rejects stale requests and rolls back failed previews.
+
+Admin photo reorder previews recompute shortest-column masonry for the proposed order without reconnecting the touched tile. Neighbours animate into their future slots; commit updates DOM/server order, cancellation restores the original layout. Public photo gallery keeps its three desktop / one mobile columns.

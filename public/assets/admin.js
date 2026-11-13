@@ -1,4 +1,4 @@
-import {sortPreview} from './reorder.js?v=1';
+import {sortPreview} from './reorder.js?v=2';
 import {tourStatus} from './panorama-tour-data.js?v=2';
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
 let clearFeedback=()=>{};
