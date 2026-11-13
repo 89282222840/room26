@@ -27,7 +27,7 @@ export function createWalkController({container,overlay,scene,camera,controls,ca
  function pointerMove(event){if(!enabled())return;const point=pointers.get(event.pointerId);if(!point){if(event.pointerType!=='touch'&&!event.buttons){pendingHover={x:event.clientX,y:event.clientY};requestRender();}return;}event.preventDefault();event.stopImmediatePropagation();
   if(Math.hypot(event.clientX-point.originX,event.clientY-point.originY)>8)point.moved=true;
   if(pointers.size>=2){const list=[...pointers.values()],other=list.find(p=>p!==point),old=Math.hypot(point.x-other.x,point.y-other.y),next=Math.hypot(event.clientX-other.x,event.clientY-other.y);if(old&&next)onZoom(Math.log(old/next)*1000);}
-  else{yaw+=(event.clientX-point.x)*.004;pitch+=(event.clientY-point.y)*.004;look();requestRender();}
+  else{const sign=event.pointerType==='touch'?1:-1;yaw+=(event.clientX-point.x)*.004*sign;pitch+=(event.clientY-point.y)*.004*sign;look();requestRender();}
   point.x=event.clientX;point.y=event.clientY;
  }
  function pointerUp(event){if(!enabled())return;const point=pointers.get(event.pointerId);if(!point)return;event.preventDefault();event.stopImmediatePropagation();pointers.delete(event.pointerId);if(canvas.hasPointerCapture(event.pointerId))canvas.releasePointerCapture(event.pointerId);
