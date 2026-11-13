@@ -21,14 +21,13 @@ function serve_document(array $p, array $item): void {
     $source=project_path($p['id']).'/doc/'.$item['id'].'.bin';
     if(!is_file($source))fail('Файл не найден.',404);
     $size=filesize($source);$start=0;$end=max(0,$size-1);
-    $etag='"'.$item['id'].'-'.$size.'-'.filemtime($source).'"';
     header('Content-Type: '.document_mime($item['filename']));
     // No attachment/download header: the browser handles the actual content type.
     if(($_GET['download']??null)==='1'){$ext=preg_replace('/[^a-zA-Z0-9]/','',pathinfo($item['filename'],PATHINFO_EXTENSION))?:'bin';header('Content-Disposition: attachment; filename="document-'.$item['id'].'.'.$ext.'"; filename*=UTF-8'."''".rawurlencode($item['filename']));}else header_remove('Content-Disposition');
     header('X-Content-Type-Options: nosniff');
     header_remove('Content-Security-Policy');
-    header('Cache-Control: no-cache');header('ETag: '.$etag);header('Accept-Ranges: bytes');
-    if (!isset($_SERVER['HTTP_RANGE']) && ($_SERVER['HTTP_IF_NONE_MATCH']??'')===$etag) {http_response_code(304);exit;}
+    header('Accept-Ranges: bytes');
+    if(!media_cache_headers($source,photo_cache_version($item),!isset($_SERVER['HTTP_RANGE'])))exit;
     if (isset($_SERVER['HTTP_RANGE'])) {
         $range=$_SERVER['HTTP_RANGE'];$valid=preg_match('/^bytes=(\d*)-(\d*)$/D',$range,$match);
         if($valid && ($match[1]!=='' || $match[2]!=='')) {

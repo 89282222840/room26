@@ -11,12 +11,12 @@ function document_icon_svg(string $ext): string {
 }
 function document_preview_url(array $p,array $item): string {
     if(!empty($item['doc_preview']))return '/document-preview.php?'.http_build_query(['p'=>$p['id'],'item'=>$item['id'],'v'=>$item['doc_preview']]);
-    if(in_array(document_extension($item),['JPG','PNG','GIF','WEBP','AVIF'],true))return item_url($p,'doc',$item);
+    if(in_array(document_extension($item),['JPG','PNG','GIF','WEBP','AVIF'],true))return document_source_url($p,$item);
     return '/document-icon.php?ext='.rawurlencode(document_extension($item));
 }
 function document_preview_attributes(array $p,array $item): string {
     $attributes=' data-document-fallback="/document-icon.php?ext='.rawurlencode(document_extension($item)).'"';
-    if(document_extension($item)==='PDF'&&empty($item['doc_preview']))$attributes.=' data-document-source="'.e(item_url($p,'doc',$item)).'"';return $attributes;
+    if(document_extension($item)==='PDF'&&empty($item['doc_preview']))$attributes.=' data-document-source="'.e(document_source_url($p,$item)).'"';return $attributes;
 }
 function document_cover_types(array $p): array {
     $present=[];foreach($p['items']['doc'] as $item)$present[document_extension($item)]=true;$types=[];

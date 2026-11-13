@@ -60,7 +60,7 @@ $labels = ['360'=>'Виртуальный тур','3d'=>'3D-модели','doc'=
 <button type="button" class="danger" data-delete="<?=e($item['id'])?>">Удалить</button></div>
 </article>
 <?php continue;endif ?>
-<?php if($type==='doc'): ?>
+<?php if($type==='doc'): $url=document_source_url($p,$item); ?>
 <article class="object-row document-tile" data-id="<?=e($item['id'])?>">
 <a class="document-tile-image" data-item-link href="<?=e($url)?>" target="_blank" rel="noopener" draggable="false"><img src="<?=e(document_preview_url($p,$item))?>"<?=document_preview_attributes($p,$item)?> width="400" height="300" alt="" loading="lazy" draggable="false"></a>
 <span class="document-tile-number" aria-hidden="true"><?=$index+1?></span><h3><a class="object-filename" data-item-link href="<?=e($url)?>" target="_blank" rel="noopener"><?=e($item['filename'])?></a></h3>

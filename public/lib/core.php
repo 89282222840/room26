@@ -96,6 +96,7 @@ function photo_project(array $p): array { $p['items']['doc']=$p['items']['photo'
 function photo_filename(array $p,array $item): string { return document_filename(photo_project($p),$item); }
 function photo_cache_version(array $item): string { return $item['source_version']??substr(hash('sha256',$item['id'].'/'.$item['size'].'/'.$item['uploaded']),0,12); }
 function photo_source_url(array $p,array $item): string { return item_url($p,'photo',$item).'?v='.rawurlencode(photo_cache_version($item)); }
+function document_source_url(array $p,array $item): string { return item_url($p,'doc',$item).'?v='.rawurlencode(photo_cache_version($item)); }
 function photo_caption(array $item): string { return $item['name'] ?: (pathinfo($item['filename'],PATHINFO_FILENAME) ?: $item['filename']); }
 function item_url(array $p, string $type, array $item): string { if($type==='photo')return '/pro/'.$p['id'].'/photo/'.rawurlencode(photo_filename($p,$item)); return $type === 'doc' ? '/pro/' . $p['id'] . '/doc/' . rawurlencode(document_filename($p, $item)) : '/pro/' . $p['id'] . '/' . $type . '/?item=' . $item['id']; }
 function asset_filename(string $type,array $item,string $kind): string {
@@ -107,7 +108,23 @@ function asset_filename(string $type,array $item,string $kind): string {
     if($kind==='edges'&&$type==='3d'&&!empty($item['edge_file'])&&preg_match('/^'.$id.'-[a-f0-9]{12}-edges\.bin$/D',$item['edge_file']))return $item['edge_file'];
     return $default;
 }
-function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(array_filter(['p'=>$p['id'], 'type'=>$type, 'item'=>$item['id'], 'kind'=>$kind, 'v'=>$kind==='edges'?($item['edge_revision']??null):($kind!=='source'?($item['preview_version']??null):($item['source_version']??null))],function($value){return $value!==null;}), '', '&', PHP_QUERY_RFC3986); }
+function asset_cache_version(array $item,string $kind): string {
+    if($kind==='source')return photo_cache_version($item);
+    return (string)($kind==='edges'?($item['edge_revision']??photo_cache_version($item)):($item['preview_version']??photo_cache_version($item)));
+}
+function asset_url(array $p, string $type, array $item, string $kind): string { return '/media.php?' . http_build_query(['p'=>$p['id'],'type'=>$type,'item'=>$item['id'],'kind'=>$kind,'v'=>asset_cache_version($item,$kind)], '', '&', PHP_QUERY_RFC3986); }
+// Versioned URLs can stay fresh; permanent links must check the current file.
+function media_cache_headers(string $source,string $version,bool $conditional=true): bool {
+    $mtime=(int)filemtime($source);$size=(int)filesize($source);
+    $etag='"'.hash('sha256',$version.'/'.$size.'/'.$mtime).'"';
+    header('ETag: '.$etag);header('Last-Modified: '.gmdate('D, d M Y H:i:s',$mtime).' GMT');
+    if(($_GET['v']??null)===$version){header('Cache-Control: public, max-age=31536000, immutable');header('Expires: '.gmdate('D, d M Y H:i:s',time()+31536000).' GMT');}
+    else{header('Cache-Control: no-cache');header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');}
+    $noneMatch=$_SERVER['HTTP_IF_NONE_MATCH']??null;$since=$_SERVER['HTTP_IF_MODIFIED_SINCE']??null;
+    if($conditional&&(($noneMatch!==null&&(trim($noneMatch)==='*'||in_array($etag,array_map(function($tag){$tag=trim($tag);return strncmp($tag,'W/',2)===0?substr($tag,2):$tag;},explode(',',$noneMatch)),true)))||($noneMatch===null&&$since!==null&&strtotime($since)!==false&&strtotime($since)>=$mtime))){http_response_code(304);return false;}
+    header('Content-Length: '.$size);return true;
+}
+
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
     fail('Объект не найден.', 404);

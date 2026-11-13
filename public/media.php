@@ -14,6 +14,7 @@ try {
     if(!is_file($source))fail('Файл не найден.',404);
     header('Content-Type: '.($kind==='edges'?'application/octet-stream':($kind==='source'?$item['mime']:'image/jpeg')));
     if($kind==='edges'){ $handle=fopen($source,'rb');$magic=fread($handle,2);fclose($handle);if($magic===chr(31).chr(139))header('Content-Encoding: gzip');}
-    header('Content-Disposition: inline');header('Content-Length: '.filesize($source));header('Cache-Control: public, max-age=86400');
+    header('Content-Disposition: inline');
+    if(!media_cache_headers($source,asset_cache_version($item,$kind)))exit;
     if($_SERVER['REQUEST_METHOD']!=='HEAD')readfile($source);
 } catch(Throwable $error) {http_response_code(404);header('Content-Type: text/plain; charset=utf-8');echo 'Файл не найден.';}
