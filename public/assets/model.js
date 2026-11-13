@@ -2,9 +2,9 @@ import {installDirectionalCeilings} from './directional-ceilings.js?v=1';
 import * as THREE from './vendor/three/three.module.js';
 import { installEdges } from './edges.js?v=8';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
-import { createSectionControl } from './section.js?v=2';
+import { createSectionControl } from './section.js?v=3';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=26';
+import { createTour } from './tour.js?v=27';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -100,7 +100,7 @@ export async function modelView(container, url, options = {}) {
   function dispose() {
     if(disposed)return;disposed=true;resolveReveal?.();cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();navigation?.dispose();ceilings?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture&&v!==mirrors?.texture)v.dispose();m.dispose();}});
-    mirrors?.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
+    mixer?.stopAllAction();scene.clear();mirrors?.dispose();renderer.renderLists.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
   }
   try {
     const gltf = await loader.loadAsync(url);
@@ -216,6 +216,6 @@ export async function modelView(container, url, options = {}) {
       else{controls.enabled=savedInteraction?.enabled??true;controls.enableDamping=savedInteraction?.damping??true;savedInteraction=null;requestRender();}
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {canvas:renderer.domElement,ready,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,directionalCeilings:ceilings?.count||0,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
+    return {getLiveState:()=>({view:getView(),grid:Boolean(floorGrid?.visible),section:section?.getState()?.value,tour:tour?.getSnapshot()}),restoreLiveState(saved){setView(saved.view);if(saved.section!==undefined)section?.setValue(saved.section);setFloorGrid(saved.grid);if(tour?.restoreSnapshot(saved.tour)===false)setView(autoView());render();},canvas:renderer.domElement,ready,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,directionalCeilings:ceilings?.count||0,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }

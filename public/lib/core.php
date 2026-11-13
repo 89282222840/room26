@@ -125,6 +125,9 @@ function media_cache_headers(string $source,string $version,bool $conditional=tr
     header('Content-Length: '.$size);return true;
 }
 
+function public_viewer_items(array $p,string $type): array {
+    return array_map(function($item)use($p,$type){return ['id'=>$item['id'],'name'=>$item['name'],'url'=>item_url($p,$type,$item),'thumb'=>asset_url($p,$type,$item,'thumb'),'og'=>asset_url($p,$type,$item,'og'),'source'=>asset_url($p,$type,$item,'source'),'views'=>$item['views']??null,'tour'=>$type==='3d'?($item['tour']??null):null,'edgeCache'=>$type==='3d'&&($item['edge_version']??0)===5?asset_url($p,'3d',$item,'edges'):null];},$p['items'][$type]??[]);
+}
 function find_item(array $p, string $type, string $id): array {
     foreach ($p['items'][$type] ?? [] as $item) if ($item['id'] === $id) return $item;
     fail('Объект не найден.', 404);

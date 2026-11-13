@@ -8,5 +8,5 @@ export function createSectionControl(container,bounds,requestRender){
  function refresh(){const active=value<1000;root.classList.toggle('is-active',active);root.style.setProperty('--section-level',value/10+'%');input.setAttribute('aria-valuetext',active?height().toFixed(2)+' м':'Сечение выключено');}
  function change(){value=Math.max(0,Math.min(1000,Number(input.value)));refresh();requestRender();}
  input.addEventListener('input',change);input.addEventListener('keydown',event=>event.stopPropagation());root.addEventListener('pointerdown',event=>event.stopPropagation());root.addEventListener('wheel',event=>event.stopPropagation());refresh();
- return {sync(walking,revealing=false){suspended=Boolean(walking);root.hidden=suspended||revealing;return height();},getState:()=>({value,active:value<1000,suspended,height:height()}),dispose(){input.removeEventListener('input',change);root.remove();}};
+ return {setValue(next){input.value=String(next);change();},sync(walking,revealing=false){suspended=Boolean(walking);root.hidden=suspended||revealing;return height();},getState:()=>({value,active:value<1000,suspended,height:height()}),dispose(){input.removeEventListener('input',change);root.remove();}};
 }

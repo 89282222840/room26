@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {createWalkController} from './walk-controller.js?v=17';
+import {createWalkController} from './walk-controller.js?v=18';
 const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=115,MAX_DIAGONAL=130;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,navigation=null,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
@@ -122,5 +122,15 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  rebuild();
  function dispose(){if(disposed)return;disposed=true;walker?.dispose();pointers.clear();transition=null;canvas.removeEventListener('pointerdown',down,true);canvas.removeEventListener('pointermove',motion,true);canvas.removeEventListener('pointerup',up,true);canvas.removeEventListener('pointercancel',cancel,true);canvas.removeEventListener('pointerleave',clearHover,true);canvas.removeEventListener('wheel',wheel,true);container.removeEventListener('keydown',key,true);overlay.remove();container.classList.remove('tour-walking');scene.remove(group);for(const marker of markers.values())marker.material.dispose();circle.dispose();material.dispose();}
  function setEnabled(value){if(editor)return true;const wasEnabled=tourEnabled;tourEnabled=Boolean(value);clearHover();press=null;if(!tourEnabled&&mode==='walk')exit();if(tourEnabled&&!wasEnabled&&mode==='overview')topView();emit();return tourEnabled;}
- return {setEnabled,enter,enterAt,exit,move,update,beforeRender,dispose,getData,getState:state,getFocusPoint:()=>focus().toArray(),pickFloor:(x,y)=>surface(x,y)?.point.toArray()||null,walk:walker,setPaused:value=>walker?.setPaused(value),addPoint,select,deleteSelected,setMode,get available(){return Boolean(navigation);},get locked(){return mode!=='overview';},get hasPoints(){return points.length>0;}};
+ function getSnapshot(){return {enabled:tourEnabled,walking:mode==='walk',overview,diagonal:walkDiagonal};}
+ function restoreSnapshot(saved){
+  if(editor||!saved)return true;tourEnabled=Boolean(saved.enabled);transition=null;shade.hidden=true;
+  if(saved.walking&&tourEnabled){
+   const foot=camera.position.clone();foot.y-=EYE_HEIGHT;const spawn=navigation?.stand(foot);
+   if(!spawn){tourEnabled=false;emit();return false;}
+   overview=saved.overview||getView();walkDiagonal=saved.diagonal||DEFAULT_DIAGONAL;controls.enabled=false;controls.enableDamping=false;mode='walk';readAngles();look();walker?.start(spawn,true);
+  }else{mode='overview';controls.enabled=true;controls.enableDamping=true;}
+  emit();return true;
+ }
+ return {getSnapshot,restoreSnapshot,setEnabled,enter,enterAt,exit,move,update,beforeRender,dispose,getData,getState:state,getFocusPoint:()=>focus().toArray(),pickFloor:(x,y)=>surface(x,y)?.point.toArray()||null,walk:walker,setPaused:value=>walker?.setPaused(value),addPoint,select,deleteSelected,setMode,get available(){return Boolean(navigation);},get locked(){return mode!=='overview';},get hasPoints(){return points.length>0;}};
 }
