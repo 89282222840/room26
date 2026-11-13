@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three/three.module.js';
 import {MeshBVH,CENTER} from './vendor/three/mesh-bvh.module.js';
-export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.18;
+export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.15;
 const DOOR=/(?:^|[^\p{L}\p{N}])(?:двер[ьи]|doors?)(?=$|[^\p{L}\p{N}])/iu;
 export function isDoor(object,gltf){
  for(let node=object;node;node=node.parent){const a=gltf.parser?.associations?.get(node),json=gltf.parser?.json;
@@ -40,7 +40,7 @@ export async function createWalkNavigation(gltf,useWorker=true){
  function bodyClear(foot){
   segment.start.set(foot.x,foot.y+STEP_HEIGHT+BODY_RADIUS+.015,foot.z);segment.end.set(foot.x,foot.y+1.75-BODY_RADIUS,foot.z);
   box.makeEmpty().expandByPoint(segment.start).expandByPoint(segment.end).expandByScalar(BODY_RADIUS);
-  let blocked=false;bvh.shapecast({intersectsBounds:bounds=>bounds.intersectsBox(box),intersectsTriangle:triangle=>{if(triangle.closestPointToSegment(segment,onTriangle,onBody)<BODY_RADIUS-.003){blocked=true;return true;}return false;}});return!blocked;
+  let blocked=false;bvh.shapecast({intersectsBounds:bounds=>bounds.intersectsBox(box),intersectsTriangle:triangle=>{if(triangle.closestPointToSegment(segment,onTriangle,onBody)<BODY_RADIUS-.001){blocked=true;return true;}return false;}});return!blocked;
  }
  function stand(point,reference=point.y){
   if(disposed)return null;const height=support(point.x,point.z,reference);if(height===null)return null;const foot=new THREE.Vector3(point.x,height,point.z);
