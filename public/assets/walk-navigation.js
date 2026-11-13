@@ -2,7 +2,7 @@ import * as THREE from './vendor/three/three.module.js';
 import {MeshBVH,CENTER} from './vendor/three/mesh-bvh.module.js';
 export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.15,LOW_OBSTACLE_HEIGHT=1.7;
 const DOOR=/(?:^|[^\p{L}\p{N}])(?:двер[ьи]|doors?)(?=$|[^\p{L}\p{N}])/iu;
-const WINDOW=/(?:^|[^\p{L}\p{N}])окно(?=$|[^\p{L}\p{N}])/iu;
+const WINDOW=/(?:^|[^\p{L}\p{N}])окно(?=$|[^\p{L}\p{N}])|^(?:FamilyInstance[\s_]+)?окна(?=$|[^\p{L}\p{N}])/iu;
 function namedOpening(object,gltf,pattern){
  for(let node=object;node;node=node.parent){const a=gltf.parser?.associations?.get(node),json=gltf.parser?.json;
   if([node.name,a?.nodes!==undefined?json?.nodes?.[a.nodes]?.name:'',a?.meshes!==undefined?json?.meshes?.[a.meshes]?.name:''].some(name=>pattern.test(name||'')))return true;

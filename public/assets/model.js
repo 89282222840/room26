@@ -3,7 +3,7 @@ import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
 import { createSectionControl } from './section.js?v=2';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=17';
+import { createTour } from './tour.js?v=18';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -186,7 +186,7 @@ export async function modelView(container, url, options = {}) {
     }
     function setCutHeight(height){applyCutHeight(height);render();}
     if(!options.preview&&(options.tourEditor||options.tour?.points?.length)){
-      if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=4');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
+      if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=5');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
       tour=createTour({container,scene,model:gltf.scene,navigation,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
     }
     if(!options.preview&&!options.editor)section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);

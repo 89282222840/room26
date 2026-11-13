@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {createWalkController} from './walk-controller.js?v=11';
+import {createWalkController} from './walk-controller.js?v=12';
 const MARKER_HEIGHT=0,EYE_HEIGHT=1.6,DEFAULT_DIAGONAL=115,MAX_DIAGONAL=130;
 const copy=value=>JSON.parse(JSON.stringify(value));
 export function createTour({container,scene,model,camera,controls,renderer,data,editor=false,getView,requestRender,radius,navigation=null,getCutHeight=()=>Infinity,onChange=()=>{},onState=()=>{}}){
