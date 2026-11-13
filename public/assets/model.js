@@ -3,7 +3,7 @@ import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
 import { createSectionControl } from './section.js?v=2';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=22';
+import { createTour } from './tour.js?v=23';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -128,8 +128,8 @@ export async function modelView(container, url, options = {}) {
     edges=installEdges(gltf,scene,cachedEdges);scene.updateMatrixWorld(true);
     function render(){
       if(disposed)return;
-      let height=section?.sync(Boolean(tour?.locked),!revealFinished)??Infinity;
-      if(!revealFinished){const progress=revealStarted===null?0:Math.min(1,(performance.now()-revealStarted)/1000);if(progress<1){const eased=progress*progress*(3-2*progress);height=box.min.y-.001+(box.max.y-box.min.y+.002)*eased;}else{revealFinished=true;height=section?.sync(Boolean(tour?.locked),false)??Infinity;resolveReveal?.();}}
+      let height=section?.sync(Boolean(tour?.locked)&&tour?.getState().mode!=='top',!revealFinished)??Infinity;
+      if(!revealFinished){const progress=revealStarted===null?0:Math.min(1,(performance.now()-revealStarted)/1000);if(progress<1){const eased=progress*progress*(3-2*progress);height=box.min.y-.001+(box.max.y-box.min.y+.002)*eased;}else{revealFinished=true;height=section?.sync(Boolean(tour?.locked)&&tour?.getState().mode!=='top',false)??Infinity;resolveReveal?.();}}
       if((section||!revealFinished)&&height!==cutHeight)applyCutHeight(height);
       if(defaultOverviewFov&&!tour?.locked){const fov=defaultFov(camera.aspect,1);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
       if(options.adaptiveDepth!==false)updateDepth(camera);
@@ -190,7 +190,7 @@ export async function modelView(container, url, options = {}) {
       tour=createTour({container,scene,model:gltf.scene,navigation,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
     }
     if(!options.preview&&(!options.editor||options.tourEditor))section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);
-    if(section)section.sync(Boolean(tour?.locked),!revealFinished);
+    if(section)section.sync(Boolean(tour?.locked)&&tour?.getState().mode!=='top',!revealFinished);
     if(!revealFinished)revealStarted=performance.now();
     if(!options.preview){
       observer=new ResizeObserver(()=>resize());observer.observe(container);

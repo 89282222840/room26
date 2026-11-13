@@ -121,4 +121,6 @@ Walking also ignores objects whose names contain «стекло», «штора�
 
 Public 3D model selection uses the Model picker without previous/next arrows. The initially inactive «Тур» button toggles entry markers and returns to overview when disabled during walking; the separate overview button is removed. The tour editor uses the shared vertical section control in its lower-right corner, without a section checkbox.
 
-When Tour is enabled, a short click/tap on any supported floor surface enters walking, including models without saved points. Public entry markers pulse gently up to 120cm diameter (motion reduced when requested). Drag and pinch gestures do not enter the tour. Walking floor-cursor placement updates every rendered pointer frame; the more costly route validation remains throttled separately to 80ms and is always repeated on click.
+When Tour is enabled, a short click/tap on any supported floor surface enters walking, including models without saved points. Public entry markers pulse gently up to 75cm diameter (motion reduced when requested). Drag and pinch gestures do not enter the tour. Walking floor-cursor placement updates every rendered pointer frame; the more costly route validation remains throttled separately to 80ms and is always repeated on click.
+
+Enabling Tour smoothly moves the camera to a fitted top view, snapping its plan orientation to the closest world-axis quarter-turn. The GLB geometry is not rotated; turning Tour off during a walk still returns to overview.
