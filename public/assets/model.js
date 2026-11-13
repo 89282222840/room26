@@ -132,14 +132,14 @@ export async function modelView(container, url, options = {}) {
       let height=section?.sync(Boolean(tour?.locked)&&tour?.getState().mode!=='top',!revealFinished)??Infinity;
       if(!revealFinished){const progress=revealStarted===null?0:Math.min(1,(performance.now()-revealStarted)/1000);if(progress<1){const eased=progress*progress*(3-2*progress);height=box.min.y-.001+(box.max.y-box.min.y+.002)*eased;}else{revealFinished=true;height=section?.sync(Boolean(tour?.locked)&&tour?.getState().mode!=='top',false)??Infinity;resolveReveal?.();}}
       if((section||!revealFinished)&&height!==cutHeight)applyCutHeight(height);
-      if(defaultOverviewFov&&!tour?.locked){const fov=defaultFov(camera.aspect,1);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
+      if(overviewDiagonal!==null&&!tour?.locked){const fov=defaultFov(camera.aspect,1,overviewDiagonal);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
       if(options.adaptiveDepth!==false)updateDepth(camera);
       if(tour?.locked&&camera.near<.01){camera.near=.01;camera.updateProjectionMatrix();}
       if(mixer)scene.updateMatrixWorld(true);
       ceilings?.update(camera);
       edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
       if(floorGrid)floorGrid.material.uniforms.pixelRatio.value=renderer.getPixelRatio();
-      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;
+      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;options.onStateChange?.();
     }
     function setFloorGrid(visible){
       if(disposed)return false;
@@ -147,8 +147,8 @@ export async function modelView(container, url, options = {}) {
       if(floorGrid){floorGrid.visible=Boolean(visible);applyCutHeight(cutHeight);}
       render();return Boolean(floorGrid?.visible);
     }
-    const defaultFov=(w,h)=>THREE.MathUtils.radToDeg(2*Math.atan(1/Math.sqrt(1+(w/Math.max(h,1))**2)));
-    let defaultOverviewFov=false;
+    const defaultFov=(w,h,angle=90)=>THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(THREE.MathUtils.degToRad(angle/2))/Math.sqrt(1+(w/Math.max(h,1))**2)));
+    let overviewDiagonal=null;
     function autoView(w=container.clientWidth,h=container.clientHeight){
       const fov=defaultFov(w,h),aspect=w/Math.max(h,1),halfVertical=THREE.MathUtils.degToRad(fov/2);
       const halfAngle=Math.min(halfVertical,Math.atan(Math.tan(halfVertical)*aspect));
@@ -156,8 +156,8 @@ export async function modelView(container, url, options = {}) {
       return {position:center.clone().add(new THREE.Vector3(1,.65,1.4).normalize().multiplyScalar(distance)).toArray(),target:center.toArray(),fov,diagonalFov:90,zoom:1};
     }
     function setView(state){
-      state=state||autoView();defaultOverviewFov=state.diagonalFov===90||!state.fov;
-      camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=defaultOverviewFov?defaultFov(container.clientWidth,container.clientHeight):state.fov;camera.zoom=state.zoom||1;
+      state=state||autoView();overviewDiagonal=Number.isFinite(state.diagonalFov)?state.diagonalFov:(!state.fov?90:null);
+      camera.position.fromArray(state.position);controls.target.fromArray(state.target);camera.fov=overviewDiagonal!==null?defaultFov(container.clientWidth,container.clientHeight,overviewDiagonal):state.fov;camera.zoom=state.zoom||1;
       camera.near=Math.max(radius/10000,.000001);camera.far=Math.max(camera.position.distanceTo(center)+radius*100,radius*1000);camera.updateProjectionMatrix();
       controls.update();render();
     }
@@ -216,6 +216,6 @@ export async function modelView(container, url, options = {}) {
       else{controls.enabled=savedInteraction?.enabled??true;controls.enableDamping=savedInteraction?.damping??true;savedInteraction=null;requestRender();}
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {getLiveState:()=>({view:getView(),grid:Boolean(floorGrid?.visible),section:section?.getState()?.value,tour:tour?.getSnapshot()}),restoreLiveState(saved){setView(saved.view);if(saved.section!==undefined)section?.setValue(saved.section);setFloorGrid(saved.grid);if(tour?.restoreSnapshot(saved.tour)===false)setView(autoView());render();},canvas:renderer.domElement,ready,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,directionalCeilings:ceilings?.count||0,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
+    return {getLiveState:()=>({view:{position:camera.position.toArray(),target:controls.target.toArray(),fov:camera.fov,zoom:camera.zoom},direction:camera.getWorldDirection(new THREE.Vector3()).toArray(),aspect:camera.aspect,grid:Boolean(floorGrid?.visible),section:section?.getState()?.value,tour:tour?.getSnapshot()}),restoreLiveState(saved){setView(saved.view);if(saved.section!==undefined)section?.setValue(saved.section);setFloorGrid(saved.grid);const tourState=saved.tour?.walking&&!saved.tour.overview?{...saved.tour,overview:autoView()}:saved.tour;if(tour?.restoreSnapshot(tourState)===false)setView(autoView());render();},canvas:renderer.domElement,ready,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,directionalCeilings:ceilings?.count||0,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }
