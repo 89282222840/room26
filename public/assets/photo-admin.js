@@ -8,7 +8,7 @@ export function installPhotoAdmin({api,show,previews,getProject,setProject,isBus
  const itemFor=tile=>getProject().items.photo.find(item=>item.id===tile.dataset.id);
  function layoutTiles(order=[...list.children]){
   const width=list.clientWidth;if(!width)return;lastWidth=width;list.classList.add('photo-masonry');const columns=matchMedia('(max-width:767px)').matches?2:3,gap=2,tileWidth=(width-gap*(columns-1))/columns,heights=Array(columns).fill(0);
-  for(const tile of order){const item=itemFor(tile),img=tile.querySelector('img'),loaded=img.complete&&img.currentSrc===img.src&&img.naturalWidth,w=loaded?img.naturalWidth:Number(item?.width||img.getAttribute('width'))||1200,h=loaded?img.naturalHeight:Number(item?.height||img.getAttribute('height'))||800,column=heights.indexOf(Math.min(...heights)),height=tileWidth*h/w;
+  let number=0;for(const tile of order){const badge=tile.querySelector('.photo-tile-number');if(badge)badge.textContent=String(++number);const item=itemFor(tile),img=tile.querySelector('img'),loaded=img.complete&&img.currentSrc===img.src&&img.naturalWidth,w=loaded?img.naturalWidth:Number(item?.width||img.getAttribute('width'))||1200,h=loaded?img.naturalHeight:Number(item?.height||img.getAttribute('height'))||800,column=heights.indexOf(Math.min(...heights)),height=tileWidth*h/w;
    tile.style.width=tileWidth+'px';tile.style.height=height+'px';tile.style.left=column*(tileWidth+gap)+'px';tile.style.top=heights[column]+'px';heights[column]+=height+gap;
   }
   list.style.height=Math.max(0,...heights.map(h=>h-gap))+'px';
