@@ -17,7 +17,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  const keyboardPoints=document.createElement('div');keyboardPoints.className='tour-keyboard-points';overlay.append(keyboardPoints);
  container.append(overlay);
  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
- const circle=new THREE.PlaneGeometry(editor?.3:.6,editor?.3:.6);
+ const circle=new THREE.PlaneGeometry(editor?.3:1.2,editor?.3:1.2);
  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2,uniforms:{pulse:{value:1},pixelRatio:{value:renderer.getPixelRatio()},selected:{value:0},hovered:{value:0}},vertexShader:'varying vec2 markerUV;void main(){markerUV=uv*2.0-1.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:`varying vec2 markerUV;uniform float pixelRatio;uniform float selected;uniform float hovered;uniform float pulse;
  void main(){float d=length(markerUV)/pulse;float pixel=max(length(vec2(dFdx(d),dFdy(d))),0.0001);float coverage=1.0-smoothstep(1.0-pixel*.5,1.0+pixel*.5,d);if(coverage<.01)discard;float ring=smoothstep(1.0-pixel*(2.0*pixelRatio+1.0),1.0-pixel*2.0*pixelRatio,d);vec3 color=mix(vec3(0.0),mix(vec3(1.0,.85,0.0),vec3(1.0),selected),ring);float alpha=mix(mix(.3,1.0,hovered),1.0,ring)*coverage;gl_FragColor=vec4(color,alpha);}`});
  function point(id){return points.find(p=>p.id===id);}
@@ -39,7 +39,7 @@ export function createTour({container,scene,model,camera,controls,renderer,data,
  function surface(clientX,clientY){setRay(clientX,clientY);for(const hit of ray.intersectObjects(surfaces,false)){if(hit.point.y>getCutHeight()+.0001||!hit.face)continue;normal.copy(hit.face.normal).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));if(normal.y>.7)return hit;}return null;}
  function setRay(x,y){const rect=renderer.domElement.getBoundingClientRect();pointer.set((x-rect.left)/rect.width*2-1,-(y-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);}
  function markerAt(x,y){
-  setRay(x,y);const hits=[],position=new THREE.Vector3(),plane=new THREE.Plane(),hitRadius=editor ? .15 : .6;
+  setRay(x,y);const hits=[],position=new THREE.Vector3(),plane=new THREE.Plane(),hitRadius=editor ? .15 : 1.2;
   for(const [id,marker]of markers){if(!marker.visible)continue;plane.set(new THREE.Vector3(0,1,0),-marker.position.y);const hit=ray.ray.intersectPlane(plane,position);if(!hit)continue;const offset=(position.x-marker.position.x)**2+(position.z-marker.position.z)**2;if(offset<=hitRadius*hitRadius)hits.push({id,distance:ray.ray.origin.distanceTo(position),offset});}
   if(!hits.length)return null;hits.sort((a,b)=>a.distance-b.distance||a.offset-b.offset);
   const blockers=ray.intersectObjects(surfaces,false).filter(h=>{const m=Array.isArray(h.object.material)?h.object.material[h.face?.materialIndex||0]:h.object.material;return h.point.y<=getCutHeight()+.001&&m?.depthWrite!==false&&m?.opacity!==0;});
