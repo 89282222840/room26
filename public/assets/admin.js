@@ -1,10 +1,11 @@
+import {documentThumbnail,installDocumentPreviews} from './document-previews.js?v=1';
 import {sortPreview} from './reorder.js?v=2';
 import {tourStatus} from './panorama-tour-data.js?v=2';
 const config=JSON.parse(document.querySelector('#admin-config').textContent);
 let clearFeedback=()=>{};
 function show(message,error=false,anchor=document.activeElement){
  clearFeedback();
- if(anchor instanceof Element)anchor=anchor.closest('.model-tile')?.querySelector('.model-more')||anchor;
+ if(anchor instanceof Element)anchor=anchor.closest('.model-tile,.document-tile')?.querySelector('.model-more,.document-more')||anchor;
  if(!(anchor instanceof Element)||anchor===document.body)anchor=document.querySelector('.topbar .button, #new-project, button');
  if(!anchor)return;
  const tip=document.createElement('div');tip.className='feedback-tip'+(error?' feedback-error':'');tip.textContent=message;tip.setAttribute('role',error?'alert':'status');
@@ -50,6 +51,7 @@ document.querySelectorAll('form.upload').forEach(form=>form.onsubmit=async event
  let done=0;
  try{for(const file of files){status.textContent=`${done+1} / ${files.length}: ${file.name}\n${type==='doc'?'Загрузка…':'Создание превью…'}`;
   const body=new FormData();body.set('type',type);body.set('file',file);
+  if(type==='doc'){status.textContent=`${done+1} / ${files.length}: ${file.name}\nПодготовка эскиза…`;const thumb=await documentThumbnail(file,file.name.split('.').pop().toUpperCase());if(thumb)body.set('doc_thumb',thumb,'thumb.jpg');}
   if(type!=='doc'){const p=await previews(file,type);body.set('thumb',p.thumb,'thumb.jpg');body.set('og',p.og,'og.jpg');if(p.edges)body.set('edge_cache',p.edges,'edges.bin');}
   status.textContent=`${done+1} / ${files.length}: ${file.name}\nЗагрузка на сервер…`;await api('upload',body);done++;bar.value=done/files.length*100;
  }busy=false;location.reload();}catch(e){busy=false;const message=`Загружено: ${done} из ${files.length}. ${e.message}`+(done?' Обновите страницу для просмотра загруженных файлов.':'');status.textContent='';bar.classList.add('hidden');uploadBusy(false);show(message,true,form.querySelector('button'));}
@@ -86,14 +88,14 @@ if(renameDialog){
    row.querySelector('h3 a').textContent=row.classList.contains('model-tile')?item.name:item.filename;target.button.dataset.filename=item.filename;row.querySelector('.drag-handle')?.setAttribute('aria-label','Переместить '+item.name);row.querySelector('.object-preview')?.setAttribute('aria-label','Просмотр '+item.filename);
    if(target.type==='doc'){
     const path='/pro/'+config.project.id+'/doc/'+encodeURIComponent(item.public_filename),copy=row.querySelector('[data-copy]');
-    row.querySelectorAll('[data-item-link]').forEach(link=>link.setAttribute('href',path));copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
+    row.querySelectorAll('[data-item-link]').forEach(link=>link.setAttribute('href',path));if(copy)copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
    }
-   renameDialog.close();const focusTarget=target.button.closest('.model-tile')?.querySelector('.model-more')||target.button;focusTarget.focus({preventScroll:true});show('Файл переименован.',false,focusTarget);
+   renameDialog.close();const focusTarget=target.button.closest('.model-tile,.document-tile')?.querySelector('.model-more,.document-more')||target.button;focusTarget.focus({preventScroll:true});show('Файл переименован.',false,focusTarget);
   }catch(e){show(e.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
  };
 }
 async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
-document.querySelectorAll('.object-list:not(.photo-admin-grid):not(.model-admin-grid)').forEach(list=>{
+document.querySelectorAll('.object-list:not(.photo-admin-grid):not(.model-admin-grid):not(.document-admin-grid)').forEach(list=>{
  list.style.overflowAnchor='none';
  let dragged=null,preview=null;
  function stop(commit){if(!dragged)return;const row=dragged,changed=preview?.changed();preview?.finish(commit);preview=null;row.classList.remove('dragging');dragged=null;if(commit&&changed)persist(list,row.querySelector('.drag-handle'));}
@@ -182,3 +184,6 @@ document.querySelectorAll('[data-replace-model]').forEach(button=>button.addEven
 }));
 
 if(config.project)import('./model-admin.js?v='+config.versions.modelAdmin).then(({installModelAdmin})=>installModelAdmin({api,show,setProject:project=>{config.project=project;},isBusy:()=>busy,setBusy:value=>{busy=value;uploadBusy(value);}})).catch(error=>show(error.message,true));
+
+installDocumentPreviews();
+if(config.project)import('./document-admin.js?v='+config.versions.documentAdmin).then(({installModelAdmin:installDocuments})=>installDocuments({api,show,setProject:project=>{config.project=project;},isBusy:()=>busy,setBusy:value=>{busy=value;uploadBusy(value);}})).catch(error=>show(error.message,true));

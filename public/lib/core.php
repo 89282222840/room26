@@ -152,3 +152,5 @@ function head_tags(string $title, string $description, string $image, string $pa
     echo '<link rel="canonical" href="' . e(SITE_URL.$path) . '"><link rel="stylesheet" href="' . e(css_url()) . '">';
 }
 function json_script(string $id, $data): void { echo '<script type="application/json" id="'.e($id).'">'.json_encode($data, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES).'</script>'; }
+
+require_once __DIR__.'/document-previews.php';

@@ -24,7 +24,7 @@ function serve_document(array $p, array $item): void {
     $etag='"'.$item['id'].'-'.$size.'-'.filemtime($source).'"';
     header('Content-Type: '.document_mime($item['filename']));
     // No attachment/download header: the browser handles the actual content type.
-    header_remove('Content-Disposition');
+    if(($_GET['download']??null)==='1'){$ext=preg_replace('/[^a-zA-Z0-9]/','',pathinfo($item['filename'],PATHINFO_EXTENSION))?:'bin';header('Content-Disposition: attachment; filename="document-'.$item['id'].'.'.$ext.'"; filename*=UTF-8'."''".rawurlencode($item['filename']));}else header_remove('Content-Disposition');
     header('X-Content-Type-Options: nosniff');
     header_remove('Content-Security-Policy');
     header('Cache-Control: no-cache');header('ETag: '.$etag);header('Accept-Ranges: bytes');

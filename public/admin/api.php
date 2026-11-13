@@ -160,7 +160,11 @@ try {
                 if (!chmod($prefix.'.'.$extension, $type === 'doc' ? 0600 : 0644)) fail('Не удалось установить права файла.', 500);
                 $name = $type === 'doc' ? $filename : pathinfo($filename, PATHINFO_FILENAME);
                 $item = ['id'=>$id, 'name'=>$name, 'filename'=>$filename, 'size'=>(int)$file['size'], 'mime'=>$mime, 'extension'=>$extension, 'uploaded'=>date(DATE_ATOM)];
-                if ($type === 'doc') $item['public_filename'] = new_document_filename($p, $item);
+                if ($type === 'doc') {
+                    $item['public_filename'] = new_document_filename($p, $item);
+                    $preview=$_FILES['doc_thumb']??null;
+                    if($preview&&!is_array($preview['error'])&&$preview['error']===UPLOAD_ERR_OK&&$preview['size']<=2*1024*1024){$pi=@getimagesize($preview['tmp_name']);if($pi&&$pi[0]===400&&$pi[1]===300&&$pi[2]===IMAGETYPE_JPEG&&move_uploaded_file($preview['tmp_name'],$prefix.'-thumb.jpg')){chmod($prefix.'-thumb.jpg',0644);$item['doc_preview']=bin2hex(random_bytes(6));}}
+                }
                 if($type==='photo'){$item['name']=$name?:$filename;$item['width']=$info[0];$item['height']=$info[1];$item['public_filename']=new_document_filename(photo_project($p),$item);}
                 if($type==='3d'&&isset($_FILES['edge_cache'])){edge_cache_upload($prefix.'-edges.bin');$item['edge_version']=5;$item['edge_revision']=bin2hex(random_bytes(6));}
                 $p['items'][$type][] = $item;
