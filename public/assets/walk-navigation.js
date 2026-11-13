@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three/three.module.js';
 import {MeshBVH,CENTER} from './vendor/three/mesh-bvh.module.js';
-export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.15,LOW_OBSTACLE_HEIGHT=1.7;
+export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.05,LOW_OBSTACLE_HEIGHT=1.7;
 const DOOR=/(?:^|[^\p{L}\p{N}])(?:двер[ьи]|doors?)(?=$|[^\p{L}\p{N}])/iu;
 const WINDOW=/(?:^|[^\p{L}\p{N}])окно(?=$|[^\p{L}\p{N}])|^(?:FamilyInstance[\s_]+)?окна(?=$|[^\p{L}\p{N}])/iu;
 const WALK_THROUGH=/(?:стекло|штора|шторы|curtain|тюль|занавес)/iu;
@@ -71,7 +71,7 @@ export async function createWalkNavigation(gltf,useWorker=true){
  }
  function stand(point,reference=point.y){
   if(disposed)return null;const height=support(point.x,point.z,reference);if(height===null)return null;const foot=new THREE.Vector3(point.x,height,point.z);
-  for(const [x,z]of [[.13,0],[-.13,0],[0,.13],[0,-.13]])if(support(foot.x+x,foot.z+z,height)===null)return null;
+  const supportRadius=BODY_RADIUS*.86;for(const [x,z]of [[supportRadius,0],[-supportRadius,0],[0,supportRadius],[0,-supportRadius]])if(support(foot.x+x,foot.z+z,height)===null)return null;
   return bodyClear(foot)?foot:null;
  }
  function advance(start,dx,dz,slide=true){
