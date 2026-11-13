@@ -2,20 +2,23 @@ import * as THREE from './vendor/three/three.module.js';
 import {MeshBVH,CENTER} from './vendor/three/mesh-bvh.module.js';
 export const STEP_HEIGHT=.3,EYE_HEIGHT=1.6,BODY_RADIUS=.15,LOW_OBSTACLE_HEIGHT=1.7;
 const DOOR=/(?:^|[^\p{L}\p{N}])(?:двер[ьи]|doors?)(?=$|[^\p{L}\p{N}])/iu;
-export function isDoor(object,gltf){
+const WINDOW=/(?:^|[^\p{L}\p{N}])окно(?=$|[^\p{L}\p{N}])/iu;
+function namedOpening(object,gltf,pattern){
  for(let node=object;node;node=node.parent){const a=gltf.parser?.associations?.get(node),json=gltf.parser?.json;
-  if([node.name,a?.nodes!==undefined?json?.nodes?.[a.nodes]?.name:'',a?.meshes!==undefined?json?.meshes?.[a.meshes]?.name:''].some(name=>DOOR.test(name||'')))return true;
+  if([node.name,a?.nodes!==undefined?json?.nodes?.[a.nodes]?.name:'',a?.meshes!==undefined?json?.meshes?.[a.meshes]?.name:''].some(name=>pattern.test(name||'')))return true;
  }return false;
 }
+export function isDoor(object,gltf){return namedOpening(object,gltf,DOOR);}
+export function isWindow(object,gltf){return namedOpening(object,gltf,WINDOW);}
 function names(node,gltf){const a=gltf.parser?.associations?.get(node),json=gltf.parser?.json;return[node.name,a?.nodes!==undefined?json?.nodes?.[a.nodes]?.name:'',a?.meshes!==undefined?json?.meshes?.[a.meshes]?.name:''].filter(Boolean);}
 function originalUnit(object,gltf){for(let n=object.parent;n&&n!==gltf.scene;n=n.parent){if(gltf.parser?.associations?.get(n)?.meshes!==undefined)return n;if(n.isMesh)break;}return object;}
 function surfaceKind(object,unit,gltf){if([...names(object,gltf),...names(unit,gltf)].some(n=>/^(?:пол|floor)(?:$|[\s_-])/iu.test(n)))return'floor';for(let n=object;n;n=n.parent)if(names(n,gltf).some(s=>/(?:^|[^\p{L}\p{N}])(?:ступен[\p{L}]*|лестни[\p{L}]*|stairs?|treads?)(?=$|[^\p{L}\p{N}])/iu.test(s)))return'stair';return'';}
 function visible(object){for(let n=object;n;n=n.parent)if(!n.visible)return false;return true;}
 function solid(material){return material&&material.visible!==false&&material.opacity!==0;}
 export async function createWalkNavigation(gltf,useWorker=true){
- const units=[null],unitMap=new Map(),plans=[],point=new THREE.Vector3(),instance=new THREE.Matrix4();let vertices=0,indices=0,doors=0;
+ const units=[null],unitMap=new Map(),plans=[],point=new THREE.Vector3(),instance=new THREE.Matrix4();let vertices=0,indices=0,doors=0,windows=0;
  gltf.scene.updateMatrixWorld(true);
- gltf.scene.traverse(object=>{if(!object.isMesh||!visible(object)||!object.geometry.attributes.position)return;if(isDoor(object,gltf)){doors++;return;}
+ gltf.scene.traverse(object=>{if(!object.isMesh||!visible(object)||!object.geometry.attributes.position)return;if(isDoor(object,gltf)){doors++;return;}if(isWindow(object,gltf)){windows++;return;}
   if(!(Array.isArray(object.material)?object.material:[object.material]).some(solid))return;
   for(let i=0;i<(object.isInstancedMesh?object.count:1);i++){const matrix=object.matrixWorld.clone();if(object.isInstancedMesh){object.getMatrixAt(i,instance);matrix.multiply(instance);}const geometry=object.geometry,owner=originalUnit(object,gltf),key=owner.uuid+(object.isInstancedMesh?':'+i:'');let unit=unitMap.get(key);if(!unit){unit={id:units.length,box:new THREE.Box3(),kind:surfaceKind(object,owner,gltf),ignored:false};units.push(unit);unitMap.set(key,unit);}plans.push({object,geometry,matrix,unit});vertices+=geometry.attributes.position.count;indices+=geometry.index?geometry.index.count:geometry.attributes.position.count;}
  });
@@ -83,5 +86,5 @@ export async function createWalkNavigation(gltf,useWorker=true){
   if(Math.abs(foot.y-target.y)>.08)return null;return path;
  }
  function pick(ray){const hits=bvh.raycast(ray,THREE.DoubleSide,.02,100).filter(hit=>!ignored(hit)).sort((a,b)=>a.distance-b.distance),hit=hits[0];return hit&&hit.face.normal.y>=.65?hit.point:null;}
- return{stand,advance,trace,pick,stats:{doors,ignoredLow,triangles:indexOffset/3,vertices},dispose(){disposed=true;geometry.dispose();bvh=null;}};
+ return{stand,advance,trace,pick,stats:{doors,windows,ignoredLow,triangles:indexOffset/3,vertices},dispose(){disposed=true;geometry.dispose();bvh=null;}};
 }

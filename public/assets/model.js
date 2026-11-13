@@ -1,9 +1,9 @@
 import * as THREE from './vendor/three/three.module.js';
 import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
-import { createSectionControl } from './section.js?v=1';
+import { createSectionControl } from './section.js?v=2';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=16';
+import { createTour } from './tour.js?v=17';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -94,8 +94,10 @@ export async function modelView(container, url, options = {}) {
   const ktx = new KTX2Loader(manager).setTranscoderPath('/assets/vendor/three/addons/libs/basis/').detectSupport(renderer);
   const loader = new GLTFLoader(manager).setDRACOLoader(draco).setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
   let observer, mixer, edges, navigation=null, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, interactionPaused=false, renderedFrames=0, disposed = false;
+  let revealStarted=null,revealFinished=!options.reveal||Boolean(options.editor||options.preview),resolveReveal;
+  const ready=revealFinished?Promise.resolve():new Promise(resolve=>{resolveReveal=resolve;});
   function dispose() {
-    if(disposed)return;disposed=true;cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();navigation?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
+    if(disposed)return;disposed=true;resolveReveal?.();cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();navigation?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture&&v!==mirrors?.texture)v.dispose();m.dispose();}});
     mirrors?.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
   }
@@ -126,7 +128,9 @@ export async function modelView(container, url, options = {}) {
     edges=installEdges(gltf,scene,cachedEdges);scene.updateMatrixWorld(true);
     function render(){
       if(disposed)return;
-      if(section){const height=section.sync(Boolean(tour?.locked));if(height!==cutHeight)applyCutHeight(height);}
+      let height=section?.sync(Boolean(tour?.locked),!revealFinished)??Infinity;
+      if(!revealFinished){const progress=revealStarted===null?0:Math.min(1,(performance.now()-revealStarted)/1000);if(progress<1){const eased=progress*progress*(3-2*progress);height=box.min.y-.001+(box.max.y-box.min.y+.002)*eased;}else{revealFinished=true;height=section?.sync(Boolean(tour?.locked),false)??Infinity;resolveReveal?.();}}
+      if(height!==cutHeight)applyCutHeight(height);
       if(defaultOverviewFov&&!tour?.locked){const fov=defaultFov(camera.aspect,1);if(Math.abs(camera.fov-fov)>1e-8){camera.fov=fov;camera.updateProjectionMatrix();}}
       if(options.adaptiveDepth!==false)updateDepth(camera);
       if(tour?.locked&&camera.near<.01){camera.near=.01;camera.updateProjectionMatrix();}
@@ -172,7 +176,7 @@ export async function modelView(container, url, options = {}) {
       mixer?.update(Math.min(clock.getDelta(),.1));
       const moving=tour?.update(performance.now())||false;
       const changed=tour?.locked?false:controls.update();render();
-      if(mixer||changed||moving)requestRender();
+      if(mixer||changed||moving||!revealFinished)requestRender();
     }
     controls.addEventListener('change',requestRender);
     function applyCutHeight(height){
@@ -182,10 +186,12 @@ export async function modelView(container, url, options = {}) {
     }
     function setCutHeight(height){applyCutHeight(height);render();}
     if(!options.preview&&(options.tourEditor||options.tour?.points?.length)){
-      if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=3');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
+      if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=4');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
       tour=createTour({container,scene,model:gltf.scene,navigation,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
     }
     if(!options.preview&&!options.editor)section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);
+    if(section)section.sync(Boolean(tour?.locked),!revealFinished);
+    if(!revealFinished)revealStarted=performance.now();
     if(!options.preview){
       observer=new ResizeObserver(()=>resize());observer.observe(container);
       requestRender();
@@ -208,6 +214,6 @@ export async function modelView(container, url, options = {}) {
       else{controls.enabled=savedInteraction?.enabled??true;controls.enableDamping=savedInteraction?.damping??true;savedInteraction=null;requestRender();}
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {canvas:renderer.domElement,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
+    return {canvas:renderer.domElement,ready,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }

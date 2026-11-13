@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
-import {EYE_HEIGHT} from './walk-navigation.js?v=3';
+import {EYE_HEIGHT} from './walk-navigation.js?v=4';
 export function createWalkController({container,overlay,scene,camera,controls,canvas,navigation,requestRender,onZoom,onExit}){
  let active=false,paused=false,disposed=false,foot=null,yaw=0,pitch=0,last=0,route=null,routeIndex=0,pendingHover=null,hoverPlan=null,cursorUntil=0,pulseUntil=0,messageUntil=0,joystickPointer=null,messageTimer=null,lastInputType='',lastPlanAt=0;
  const keys=new Set(),pointers=new Map(),stick={x:0,y:0},direction=new THREE.Vector3(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
