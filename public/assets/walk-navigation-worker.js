@@ -1,0 +1,3 @@
+import {BufferGeometry,BufferAttribute} from './vendor/three/three.module.js';
+import {MeshBVH,CENTER} from './vendor/three/mesh-bvh.module.js';
+self.onmessage=({data})=>{try{const geometry=new BufferGeometry();geometry.setAttribute('position',new BufferAttribute(data.positions,3));geometry.setIndex(new BufferAttribute(data.index,1));const bvh=new MeshBVH(geometry,{strategy:CENTER,maxLeafTris:12,maxDepth:40,verbose:false});const serialized=MeshBVH.serialize(bvh,{cloneBuffers:false});self.postMessage({positions:data.positions,serialized},[data.positions.buffer,serialized.index.buffer,...serialized.roots]);}catch(error){self.postMessage({error:error.message});}};

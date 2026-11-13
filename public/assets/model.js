@@ -3,7 +3,7 @@ import { installEdges } from './edges.js?v=5';
 import { applyMirrorEnvironment } from './mirrors.js?v=1';
 import { createSectionControl } from './section.js?v=1';
 import { adaptiveDepth } from './depth.js?v=1';
-import { createTour } from './tour.js?v=6';
+import { createTour } from './tour.js?v=7';
 import { OrbitControls } from './vendor/three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from './vendor/three/addons/loaders/DRACOLoader.js';
@@ -93,9 +93,9 @@ export async function modelView(container, url, options = {}) {
   const draco = new DRACOLoader(manager).setDecoderPath('/assets/vendor/three/addons/libs/draco/gltf/').setDecoderConfig({type:'js'});
   const ktx = new KTX2Loader(manager).setTranscoderPath('/assets/vendor/three/addons/libs/basis/').detectSupport(renderer);
   const loader = new GLTFLoader(manager).setDRACOLoader(draco).setKTX2Loader(ktx).setMeshoptDecoder(MeshoptDecoder);
-  let observer, mixer, edges, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, interactionPaused=false, renderedFrames=0, disposed = false;
+  let observer, mixer, edges, navigation=null, mirrors=null, section=null, mirrorError=false, tour=null, cutHeight=Infinity, frame=0, capturing=false, interactionPaused=false, renderedFrames=0, disposed = false;
   function dispose() {
-    if(disposed)return;disposed=true;cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
+    if(disposed)return;disposed=true;cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();navigation?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture&&v!==mirrors?.texture)v.dispose();m.dispose();}});
     mirrors?.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
   }
@@ -182,7 +182,8 @@ export async function modelView(container, url, options = {}) {
     }
     function setCutHeight(height){applyCutHeight(height);render();}
     if(!options.preview&&(options.tourEditor||options.tour?.points?.length)){
-      tour=createTour({container,scene,model:gltf.scene,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
+      if(!options.tourEditor){const {createWalkNavigation}=await import('./walk-navigation.js?v=1');try{navigation=await createWalkNavigation(gltf);}catch(error){console.warn('Не удалось подготовить прогулку',error);}if(disposed){navigation?.dispose();throw Error('Просмотрщик закрыт.');}}
+      tour=createTour({container,scene,model:gltf.scene,navigation,camera,controls,renderer,data:options.tour,editor:Boolean(options.tourEditor),getView,requestRender,radius,getCutHeight:()=>cutHeight,onChange:options.onTourChange,onState:options.onTourState});
     }
     if(!options.preview&&!options.editor)section=createSectionControl(container,{min:box.min.toArray(),max:box.max.toArray()},requestRender);
     if(!options.preview){
@@ -202,11 +203,11 @@ export async function modelView(container, url, options = {}) {
     let savedInteraction=null;
     function setInteractionPaused(paused){
       if(disposed||interactionPaused===Boolean(paused))return;
-      interactionPaused=Boolean(paused);
+      interactionPaused=Boolean(paused);tour?.setPaused(interactionPaused);
       if(interactionPaused){savedInteraction={enabled:controls.enabled,damping:controls.enableDamping};controls.enabled=false;controls.enableDamping=false;controls.update();cancelAnimationFrame(frame);frame=0;render();}
       else{controls.enabled=savedInteraction?.enabled??true;controls.enableDamping=savedInteraction?.damping??true;savedInteraction=null;requestRender();}
     }
     function zoomBy(factor){camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).divideScalar(factor)));controls.update();render();}
-    return {canvas:renderer.domElement,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
+    return {canvas:renderer.domElement,dispose,setInteractionPaused,getView,setView,resize,getAutoView:autoView,capture,zoomBy,hasFloorGrid:floors.length>0,setFloorGrid,tour,setCutHeight,getSectionState:()=>section?.getState()||null,getBounds:()=>({min:box.min.toArray(),max:box.max.toArray()}),getEdgeCache:async()=>{const blob=edges.exportCache();return typeof CompressionStream==='function'?new Response(blob.stream().pipeThrough(new CompressionStream('gzip'))).blob():blob;},getDiagnostics:()=>({...edges.stats,mirrors:mirrors?.count||0,mirrorReady:mirrors?.ready||false,mirrorError,walkNavigation:navigation?.stats||null,cutHeight,renderedFrames,drawCalls:renderer.info.render.calls,renderedLines:renderer.info.render.lines,near:camera.near,far:camera.far,reverseDepth:Boolean(renderer.capabilities.reverseDepthBuffer)})};
   } catch(error) {dispose();throw error;}
 }
