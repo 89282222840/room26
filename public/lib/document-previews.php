@@ -15,7 +15,8 @@ function document_preview_url(array $p,array $item): string {
     return '/document-icon.php?ext='.rawurlencode(document_extension($item));
 }
 function document_preview_attributes(array $p,array $item): string {
-    return document_extension($item)==='PDF'&&empty($item['doc_preview'])?' data-document-source="'.e(item_url($p,'doc',$item)).'"':'';
+    $attributes=' data-document-fallback="/document-icon.php?ext='.rawurlencode(document_extension($item)).'"';
+    if(document_extension($item)==='PDF'&&empty($item['doc_preview']))$attributes.=' data-document-source="'.e(item_url($p,'doc',$item)).'"';return $attributes;
 }
 function document_cover_types(array $p): array {
     $present=[];foreach($p['items']['doc'] as $item)$present[document_extension($item)]=true;$types=[];

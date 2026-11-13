@@ -1,2 +1,2 @@
-import {installDocumentPreviews} from './document-previews.js?v=1';
+import {installDocumentPreviews} from './document-previews.js?v=2';
 installDocumentPreviews();

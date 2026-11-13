@@ -12,6 +12,7 @@ export async function documentThumbnail(source,extension){
  }catch{return null;}finally{clearTimeout(timer);if(url)URL.revokeObjectURL(url);try{if(pdf)await pdf.destroy();else if(task)await task.destroy();}catch{}}
 }
 export function installDocumentPreviews(root=document){
+ for(const img of root.querySelectorAll('img[data-document-fallback]')){const fallback=()=>{if(img.src!==new URL(img.dataset.documentFallback,location.origin).href)img.src=img.dataset.documentFallback;};img.addEventListener('error',fallback,{once:true});if(img.complete&&!img.naturalWidth)fallback();}
  const queue=[];let running=0;if(typeof IntersectionObserver==='undefined'){for(const img of root.querySelectorAll('img[data-document-source]'))queue.push(img);pump();return;}const observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){observer.unobserve(entry.target);queue.push(entry.target);}pump();},{rootMargin:'300px'});
  async function pump(){while(running<2&&queue.length){const img=queue.shift();running++;documentThumbnail(img.dataset.documentSource,'PDF').then(blob=>{if(blob&&img.isConnected){const url=URL.createObjectURL(blob);img.src=url;img.onload=()=>URL.revokeObjectURL(url);}}).finally(()=>{running--;pump()});}}
  for(const img of root.querySelectorAll('img[data-document-source]'))observer.observe(img);
