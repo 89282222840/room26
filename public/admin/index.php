@@ -36,14 +36,28 @@ $labels = ['360'=>'Виртуальный тур','3d'=>'3D-модели','doc'=
 <?php continue;endif ?>
 
 <section class="card" id="section-<?=$type?>"><div class="section-header"><h2><?=e($label)?></h2><span class="muted small"><?=count($p['items'][$type])?> объектов</span></div>
-<form class="upload<?=$type==='photo'?' photo-upload':''?>" data-type="<?=$type?>"><label for="files-<?=$type?>"><?=$type==='360'?'Добавить панорамы (JPG, PNG, WebP, формат 2:1)':($type==='3d'?'Добавить модели GLB':($type==='photo'?'Добавить фото (JPG, PNG, WebP, GIF, AVIF)':'Добавить файлы любых форматов'))?></label><p class="upload-drop-hint muted small" id="upload-hint-<?=$type?>">Перетащите файлы сюда или выберите их</p><input type="file" hidden aria-describedby="upload-hint-<?=$type?>" id="files-<?=$type?>" name="files" multiple required <?=$type==='360'?'accept="image/jpeg,image/png,image/webp"':($type==='3d'?'accept=".glb"':($type==='photo'?'accept="image/jpeg,image/png,image/webp,image/gif,image/avif"':''))?>><button type="button" class="choose-files" aria-controls="files-<?=$type?>" aria-describedby="upload-hint-<?=$type?>"><?=$type==='photo'?'Добавить':'Выбрать файлы'?></button><p class="muted small"><?php if($type==='doc'): ?>Файлы будут доступны по прямым ссылкам.<?php else: ?>JPG-превью 400 × 200 и обложка ссылки создаются автоматически.<?php endif ?> Лимит одного файла на сервере: <?=e(ini_get('upload_max_filesize'))?>; запроса: <?=e(ini_get('post_max_size'))?>.</p><div class="upload-status" role="status"></div><progress class="hidden" max="100" value="0"></progress></form>
-<div class="object-list <?=$type==='photo'?'photo-admin-grid':''?>" data-type="<?=$type?>">
+<form class="upload<?=$type==='photo'?' photo-upload':($type==='3d'?' model-upload':'')?>" data-type="<?=$type?>"><label for="files-<?=$type?>"><?=$type==='360'?'Добавить панорамы (JPG, PNG, WebP, формат 2:1)':($type==='3d'?'Добавить модели GLB':($type==='photo'?'Добавить фото (JPG, PNG, WebP, GIF, AVIF)':'Добавить файлы любых форматов'))?></label><p class="upload-drop-hint muted small" id="upload-hint-<?=$type?>">Перетащите файлы сюда или выберите их</p><input type="file" hidden aria-describedby="upload-hint-<?=$type?>" id="files-<?=$type?>" name="files" multiple required <?=$type==='360'?'accept="image/jpeg,image/png,image/webp"':($type==='3d'?'accept=".glb"':($type==='photo'?'accept="image/jpeg,image/png,image/webp,image/gif,image/avif"':''))?>><button type="button" class="choose-files" aria-controls="files-<?=$type?>" aria-describedby="upload-hint-<?=$type?>"><?=in_array($type,['photo','3d'],true)?'Добавить':'Выбрать файлы'?></button><p class="muted small"><?php if($type==='doc'): ?>Файлы будут доступны по прямым ссылкам.<?php else: ?>JPG-превью 400 × 200 и обложка ссылки создаются автоматически.<?php endif ?> Лимит одного файла на сервере: <?=e(ini_get('upload_max_filesize'))?>; запроса: <?=e(ini_get('post_max_size'))?>.</p><div class="upload-status" role="status"></div><progress class="hidden" max="100" value="0"></progress></form>
+<div class="object-list <?=$type==='photo'?'photo-admin-grid':($type==='3d'?'model-admin-grid':'')?>" data-type="<?=$type?>">
 <?php foreach($p['items'][$type] as $index=>$item):$url=item_url($p,$type,$item); ?>
 <?php if($type==='photo'): ?>
 <article class="photo-tile" data-id="<?=e($item['id'])?>" data-url="<?=e($url)?>">
 <a class="photo-tile-image" href="<?=e($url)?>" target="_blank" rel="noopener" draggable="false" aria-label="<?=e(photo_caption($item))?>"><img src="<?=e($url.(!empty($item['source_version'])?'?v='.$item['source_version']:''))?>" width="<?=(int)($item['width']??1200)?>" height="<?=(int)($item['height']??800)?>" loading="lazy" decoding="async" draggable="false" alt="<?=e(photo_caption($item))?>"><span class="photo-tile-caption pano-tour-caption"><?=e(photo_caption($item))?></span></a>
 <span class="photo-tile-number" aria-hidden="true"><?=$index+1?></span>
 <button type="button" class="pano-tour-more photo-more" aria-label="<?=e('Действия: '.photo_caption($item))?>" aria-haspopup="dialog" aria-expanded="false">⋮</button>
+</article>
+<?php continue;endif ?>
+<?php if($type==='3d'): ?>
+<article class="object-row model-tile" data-id="<?=e($item['id'])?>">
+<a class="object-preview model-tile-image" data-item-link href="<?=e($url)?>" target="_blank" rel="noopener" draggable="false" aria-label="<?=e('Открыть '.$item['name'])?>"><img src="<?=e(asset_url($p,'3d',$item,'thumb'))?>" width="400" height="200" alt="" loading="lazy" draggable="false"></a>
+<span class="model-tile-number" aria-hidden="true"><?=$index+1?></span><h3 class="model-tile-caption"><a class="object-filename" data-item-link href="<?=e($url)?>" target="_blank" rel="noopener"><?=e($item['name'])?></a></h3>
+<button type="button" class="pano-tour-more model-more" aria-label="<?=e('Действия: '.$item['name'])?>" aria-haspopup="dialog" aria-expanded="false">⋮</button>
+<div class="pano-item-menu model-item-menu" role="dialog" aria-label="Действия с моделью" hidden><div class="pano-item-info"><?=e(number_format($item['size']/1048576,1,'.','').' мб, '.date('d.m.Y, H:i',strtotime($item['replaced']??$item['uploaded'])))?></div><hr>
+<a href="<?=e($url)?>" target="_blank" rel="noopener">Открыть</a>
+<button type="button" data-rename="<?=e($item['id'])?>" data-filename="<?=e($item['filename'])?>">Переименовать</button>
+<button type="button" data-camera="<?=e($item['id'])?>">Ракурс по умолчанию</button>
+<button type="button" data-tour="<?=e($item['id'])?>">Настроить тур</button>
+<button type="button" data-replace-model="<?=e($item['id'])?>">Заменить модель</button>
+<button type="button" class="danger" data-delete="<?=e($item['id'])?>">Удалить</button></div>
 </article>
 <?php continue;endif ?>
 <article class="object-row" data-id="<?=e($item['id'])?>"><button class="drag-handle" type="button" draggable="true" aria-label="Переместить <?=e($item['name'])?>">⋮⋮</button>
@@ -73,6 +87,6 @@ $labels = ['360'=>'Виртуальный тур','3d'=>'3D-модели','doc'=
 </dialog>
 <?php endif ?>
 <dialog id="new-dialog" class="dialog"><form id="create-form"><h2>Новый проект</h2><label for="new-name">Название проекта</label><input id="new-name" name="name" maxlength="200" required><div class="actions"><button type="button" class="secondary" data-close>Отмена</button><button>Создать проект</button></div></form></dialog>
-<?php json_script('admin-config',['csrf'=>$_SESSION['csrf'],'project'=>$selected,'versions'=>['model'=>asset_version('model.js'),'panorama'=>asset_version('panorama.js'),'editor'=>asset_version('camera-editor.js'),'tourEditor'=>asset_version('tour-editor.js'),'panoramaTour'=>asset_version('panorama-tour-editor.js'),'photoAdmin'=>asset_version('photo-admin.js')]]); ?>
+<?php json_script('admin-config',['csrf'=>$_SESSION['csrf'],'project'=>$selected,'versions'=>['model'=>asset_version('model.js'),'panorama'=>asset_version('panorama.js'),'editor'=>asset_version('camera-editor.js'),'tourEditor'=>asset_version('tour-editor.js'),'panoramaTour'=>asset_version('panorama-tour-editor.js'),'photoAdmin'=>asset_version('photo-admin.js'),'modelAdmin'=>asset_version('model-admin.js')]]); ?>
 <script type="module" src="/assets/admin.js?v=<?=e(substr(hash_file('sha256', __DIR__.'/../assets/admin.js'),0,12))?>"></script></div>
 <?php endif ?></body></html>

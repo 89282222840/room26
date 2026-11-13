@@ -4,6 +4,7 @@ const config=JSON.parse(document.querySelector('#admin-config').textContent);
 let clearFeedback=()=>{};
 function show(message,error=false,anchor=document.activeElement){
  clearFeedback();
+ if(anchor instanceof Element)anchor=anchor.closest('.model-tile')?.querySelector('.model-more')||anchor;
  if(!(anchor instanceof Element)||anchor===document.body)anchor=document.querySelector('.topbar .button, #new-project, button');
  if(!anchor)return;
  const tip=document.createElement('div');tip.className='feedback-tip'+(error?' feedback-error':'');tip.textContent=message;tip.setAttribute('role',error?'alert':'status');
@@ -82,17 +83,17 @@ if(renameDialog){
   try{
    const result=await api('rename',{type:target.type,item:target.id,name:field.value});config.project=result.project;
    const item=result.project.items[target.type].find(item=>item.id===target.id),row=target.button.closest('.object-row');
-   row.querySelector('h3 a').textContent=item.filename;target.button.dataset.filename=item.filename;row.querySelector('.drag-handle').setAttribute('aria-label','Переместить '+item.name);row.querySelector('.object-preview')?.setAttribute('aria-label','Просмотр '+item.filename);
+   row.querySelector('h3 a').textContent=row.classList.contains('model-tile')?item.name:item.filename;target.button.dataset.filename=item.filename;row.querySelector('.drag-handle')?.setAttribute('aria-label','Переместить '+item.name);row.querySelector('.object-preview')?.setAttribute('aria-label','Просмотр '+item.filename);
    if(target.type==='doc'){
     const path='/pro/'+config.project.id+'/doc/'+encodeURIComponent(item.public_filename),copy=row.querySelector('[data-copy]');
     row.querySelectorAll('[data-item-link]').forEach(link=>link.setAttribute('href',path));copy.dataset.copy=new URL(copy.dataset.copy).origin+path;
    }
-   renameDialog.close();target.button.focus({preventScroll:true});show('Файл переименован.',false,target.button);
+   renameDialog.close();const focusTarget=target.button.closest('.model-tile')?.querySelector('.model-more')||target.button;focusTarget.focus({preventScroll:true});show('Файл переименован.',false,focusTarget);
   }catch(e){show(e.message,true,submit);}finally{submit.disabled=false;cancel.disabled=false;}
  };
 }
 async function persist(list,anchor=list){try{await api('reorder',{type:list.dataset.type,order:JSON.stringify([...list.children].map(row=>row.dataset.id))});}catch(e){show(e.message+' Обновите страницу перед продолжением.',true,anchor);}}
-document.querySelectorAll('.object-list:not(.photo-admin-grid)').forEach(list=>{
+document.querySelectorAll('.object-list:not(.photo-admin-grid):not(.model-admin-grid)').forEach(list=>{
  list.style.overflowAnchor='none';
  let dragged=null,preview=null;
  function stop(commit){if(!dragged)return;const row=dragged,changed=preview?.changed();preview?.finish(commit);preview=null;row.classList.remove('dragging');dragged=null;if(commit&&changed)persist(list,row.querySelector('.drag-handle'));}
@@ -174,8 +175,10 @@ document.querySelectorAll('[data-replace-panorama]').forEach(button=>button.addE
 
 document.querySelectorAll('[data-replace-model]').forEach(button=>button.addEventListener('click',()=>{
  if(busy)return;const input=document.createElement('input');input.type='file';input.accept='.glb';
- input.onchange=async()=>{const file=input.files[0];if(!file||busy)return;const item=config.project.items['3d'].find(item=>item.id===button.dataset.replaceModel),label=button.textContent;busy=true;button.disabled=true;uploadBusy(true);
+ input.onchange=async()=>{const file=input.files[0];if(!file||busy)return;const item=config.project.items['3d'].find(item=>item.id===button.dataset.replaceModel),label=button.textContent,tile=button.closest('.model-tile');busy=true;button.disabled=true;uploadBusy(true);tile?.classList.add('is-working');
   try{button.textContent='Подготовка…';const image=await previews(file,'3d',item.views?.desktop),body=new FormData();body.set('item',item.id);body.set('source_size',String(item.size));body.set('source_version',item.source_version||'');body.set('file',file);body.set('thumb',image.thumb,'thumb.jpg');body.set('og',image.og,'og.jpg');if(image.edges)body.set('edge_cache',image.edges,'edges.bin');button.textContent='Загрузка…';await api('replace_model',body);busy=false;location.reload();}
-  catch(error){show(error.message,true,button);}finally{busy=false;button.disabled=false;button.textContent=label;uploadBusy(false);}
+  catch(error){show(error.message,true,button);}finally{busy=false;button.disabled=false;button.textContent=label;uploadBusy(false);tile?.classList.remove('is-working');}
  };input.click();
 }));
+
+if(config.project)import('./model-admin.js?v='+config.versions.modelAdmin).then(({installModelAdmin})=>installModelAdmin({api,show,setProject:project=>{config.project=project;},isBusy:()=>busy,setBusy:value=>{busy=value;uploadBusy(value);}})).catch(error=>show(error.message,true));
