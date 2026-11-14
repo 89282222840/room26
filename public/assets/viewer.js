@@ -1,6 +1,6 @@
 import {modelStateFromURL,modelURL} from './model-link.js?v=1';
 import {watchProject} from './project-live.js?v=1';
-import {installPanoramaPicker} from './panorama-picker.js?v=1';
+import {installPanoramaPicker} from './panorama-picker.js?v=2';
 import {panoramaViewFromURL,panoramaURL} from './panorama-link.js?v=1';
 const config=JSON.parse(document.querySelector('#viewer-config').textContent);
 const container=document.querySelector('#viewer'),status=document.querySelector('#viewer-status'),title=document.querySelector('#object-title'),dialog=document.querySelector('#object-list');
@@ -21,7 +21,7 @@ function queueModelCameraURL(){if(config.type==='3d'&&!busy&&!modelURLTimer)mode
 function selectFromURL(index){const saved=config.type==='3d'?modelStateFromURL(location.href,config.items[index]?.id):null;return select(index,'none',saved?.view||(config.type==='360'?panoramaViewFromURL(location.href):null),saved);}
 async function select(index,historyMode='push',arrival=null,restored=null){
  if(!config.items.length)return;
- if(busy)return;if(historyMode==='push')saveModelCameraURL();clearTimeout(modelURLTimer);modelURLTimer=null;busy=true;if(tourButton){tourButton.hidden=true;tourButton.setAttribute('aria-pressed','false');}if(modelControls)modelControls.hidden=true;container.setAttribute('aria-busy','true');if(historyMode==='push'&&config.type==='360'&&view?.raw){saveCameraURL(config.items[active],{yaw:view.raw.getYaw(),pitch:view.raw.getPitch(),hfov:view.raw.getHfov()});}if(gridButton){gridButton.hidden=true;gridButton.setAttribute('aria-pressed','false');}arrows.forEach(b=>b.disabled=true);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=true);
+ if(busy)return;delete status.dataset.choice;delete status.dataset.choicePending;status.classList.remove('is-choice');if(historyMode==='push')saveModelCameraURL();clearTimeout(modelURLTimer);modelURLTimer=null;busy=true;if(tourButton){tourButton.hidden=true;tourButton.setAttribute('aria-pressed','false');}if(modelControls)modelControls.hidden=true;container.setAttribute('aria-busy','true');if(historyMode==='push'&&config.type==='360'&&view?.raw){saveCameraURL(config.items[active],{yaw:view.raw.getYaw(),pitch:view.raw.getPitch(),hfov:view.raw.getHfov()});}if(gridButton){gridButton.hidden=true;gridButton.setAttribute('aria-pressed','false');}arrows.forEach(b=>b.disabled=true);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=true);
  active=(index+config.items.length)%config.items.length;const item=config.items[active];status.hidden=false;status.classList.toggle('is-loading',config.type==='3d');if(config.type==='3d')status.innerHTML='Загрузка<span class="loading-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>';else status.textContent='Загрузка…';title.textContent=item.name;
  view?.dispose?.();view?.destroy?.();view=null;container.replaceChildren();
  if(historyMode==='push')history.pushState({item:item.id},'',item.url);
@@ -36,10 +36,13 @@ async function select(index,historyMode='push',arrival=null,restored=null){
  finally{busy=false;if(status.hidden)saveModelCameraURL();container.setAttribute('aria-busy','false');arrows.forEach(b=>b.disabled=false);dialog.querySelectorAll('[data-item]').forEach(b=>b.disabled=false);}
 }
 document.querySelector('#previous')?.addEventListener('click',()=>select(active-1));document.querySelector('#next')?.addEventListener('click',()=>select(active+1));
-document.querySelector('#show-list')?.addEventListener('click',()=>{if(picker){if(config.type==='360'&&view)saveCameraURL(config.items[active],view.getView());else saveModelCameraURL();view?.setInteractionPaused?.(true);picker.open();}else dialog.showModal();});document.querySelector('#close-list').onclick=()=>picker?picker.close():dialog.close();dialog.addEventListener('click',async event=>{const button=event.target.closest('[data-item]');if(!button||busy)return;const index=config.items.findIndex(i=>i.id===button.dataset.item);if(index<0)return;if(picker)await picker.close();else dialog.close();if(!view||!picker||index!==active)select(index);});
+document.querySelector('#show-list')?.addEventListener('click',()=>{if(picker){if(config.type==='360'&&view)saveCameraURL(config.items[active],view.getView());else saveModelCameraURL();view?.setInteractionPaused?.(true);picker.open();}else dialog.showModal();});document.querySelector('#close-list').onclick=()=>picker?picker.close():dialog.close();dialog.addEventListener('click',async event=>{const button=event.target.closest('[data-item]');if(!button||busy)return;const index=config.items.findIndex(i=>i.id===button.dataset.item);if(index<0)return;status.dataset.choicePending='true';if(picker)await picker.close();else dialog.close();if(!view||!picker||index!==active)select(index);});
 function showInitialChoice(){
  view?.dispose?.();view=null;container.replaceChildren();container.setAttribute('aria-busy','false');if(modelControls)modelControls.hidden=true;if(gridButton)gridButton.hidden=true;if(tourButton)tourButton.hidden=true;title.textContent=config.projectName||(config.type==='3d'?'3D-модели':'Панорамы');status.hidden=false;status.classList.remove('is-loading');
- const choose=document.createElement('button');choose.type='button';choose.textContent=config.type==='3d'?'Выбрать модель':'Выбрать панораму';choose.onclick=()=>picker?picker.open():dialog.showModal();status.replaceChildren(document.createTextNode(config.type==='3d'?'Выберите модель для просмотра':'Выберите панораму для просмотра'),document.createElement('br'),choose);dialog.querySelectorAll('[data-item]').forEach(b=>b.setAttribute('aria-current','false'));if(picker)picker.open();else dialog.showModal();
+ status.dataset.choice='true';delete status.dataset.choicePending;status.classList.toggle('is-choice',config.type==='3d');
+ const choose=document.createElement('button');choose.type='button';choose.textContent=config.type==='3d'?'Выбрать модель':'Выбрать панораму';choose.onclick=()=>{status.hidden=true;if(picker)picker.open();else dialog.showModal();};
+ if(config.type==='3d')status.replaceChildren(choose);else status.replaceChildren(document.createTextNode('Выберите панораму для просмотра'),document.createElement('br'),choose);
+ status.hidden=true;dialog.querySelectorAll('[data-item]').forEach(b=>b.setAttribute('aria-current','false'));if(picker)picker.open();else dialog.showModal();
 }
 window.addEventListener('popstate',()=>{const id=new URL(location.href).searchParams.get('item');if(busy){location.reload();return;}if(config.type==='3d'&&config.items.length>1&&!id){showInitialChoice();return;}const index=config.items.findIndex(i=>i.id===(id||config.current));if(index>=0)selectFromURL(index);});
 function start(){if(config.chooseModelOnStart)showInitialChoice();else selectFromURL(active);}
@@ -47,7 +50,8 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 gridButton?.addEventListener('click',()=>{if(busy||!view)return;const enabled=view.setFloorGrid(gridButton.getAttribute('aria-pressed')!=='true');gridButton.setAttribute('aria-pressed',String(enabled));});
 
-if(picker)dialog.addEventListener('close',()=>view?.setInteractionPaused?.(false));
+dialog.addEventListener('pickeropen',()=>{if(status.dataset.choice)status.hidden=true;});
+if(picker)dialog.addEventListener('close',()=>{view?.setInteractionPaused?.(false);if(status.dataset.choice&&!status.dataset.choicePending&&!busy&&!view&&!dialog.open)status.hidden=false;});
 
 tourButton?.addEventListener('click',()=>{if(busy||!view?.tour)return;const enabled=view.tour.setEnabled(tourButton.getAttribute('aria-pressed')!=='true');tourButton.setAttribute('aria-pressed',String(enabled));});
 
@@ -68,7 +72,7 @@ function refreshPicker(){
  if(modelControls&&view)modelControls.hidden=![...modelControls.children].some(button=>!button.hidden);
 }
 function showDeleted(){
- view?.dispose?.();view?.destroy?.();view=null;hotspotIds=[];container.replaceChildren();if(modelControls)modelControls.hidden=true;if(gridButton)gridButton.hidden=true;if(tourButton)tourButton.hidden=true;title.textContent='';status.hidden=false;status.classList.remove('is-loading');status.textContent=config.type==='3d'?'Модель удалена':'Панорама удалена';
+ delete status.dataset.choice;delete status.dataset.choicePending;status.classList.remove('is-choice');view?.dispose?.();view?.destroy?.();view=null;hotspotIds=[];container.replaceChildren();if(modelControls)modelControls.hidden=true;if(gridButton)gridButton.hidden=true;if(tourButton)tourButton.hidden=true;title.textContent='';status.hidden=false;status.classList.remove('is-loading');status.textContent=config.type==='3d'?'Модель удалена':'Панорама удалена';
  if(dialog.open)dialog.close();
 }
 watchProject(async state=>{
@@ -80,7 +84,7 @@ watchProject(async state=>{
  if(replacing&&config.type==='360'){const img=new Image();img.src=next.source;await img.decode();if(busy||config.items[active]?.id!==old?.id)return false;}
  const saved=replacing&&view?(config.type==='3d'?view.getLiveState():view.getView()):null;
  config.items=items;config.panoramaTour=tour;active=next?items.indexOf(next):-1;refreshPicker();
- if(!next&&old){showDeleted();if(items.length){active=0;status.textContent=config.type==='3d'?'Выберите модель для просмотра':'Выберите панораму для просмотра';const choose=document.createElement('button');choose.textContent=config.type==='3d'?'Выбрать модель':'Выбрать панораму';choose.onclick=()=>picker?picker.open():dialog.showModal();status.append(document.createElement('br'),choose);history.replaceState({},'',location.pathname);if(picker)picker.open();else dialog.showModal();}return;}
+ if(!next&&old){showDeleted();if(items.length){active=0;history.replaceState({},'',location.pathname);showInitialChoice();}return;}
  if(!old){if(items.length){active=0;showInitialChoice();}return;}
  if(replacing){hotspotIds=[];await select(active,'none',config.type==='360'?saved:saved?.view,config.type==='3d'?saved:null);}
  else{title.textContent=next.name;document.title=next.name+' — ROOM26';if(config.type==='360')syncHotspots();}

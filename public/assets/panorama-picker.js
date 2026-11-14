@@ -4,7 +4,7 @@ export function installPanoramaPicker(dialog,trigger){
  const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
  function clearGesture(){gesture=null;dialog.classList.remove('is-dragging');sheet.style.removeProperty('--sheet-offset');shade.style.removeProperty('opacity');}
  function open(){
-  if(dialog.open)return;previousFocus=document.activeElement;const token=++epoch;clearGesture();dialog.classList.remove('is-closing');dialog.classList.add('is-opening');dialog.showModal();trigger?.setAttribute('aria-expanded','true');
+  if(dialog.open)return;dialog.dispatchEvent(new Event('pickeropen'));previousFocus=document.activeElement;const token=++epoch;clearGesture();dialog.classList.remove('is-closing');dialog.classList.add('is-opening');dialog.showModal();trigger?.setAttribute('aria-expanded','true');
   requestAnimationFrame(()=>requestAnimationFrame(()=>{if(token===epoch&&dialog.open)dialog.classList.remove('is-opening');}));
  }
  function close(){
