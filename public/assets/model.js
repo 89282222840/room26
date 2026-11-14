@@ -75,8 +75,8 @@ function softSkyBackground(){
   // A tiny procedural panorama: a stable world horizon, without downloads or clouds.
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;
   const context=canvas.getContext('2d'),gradient=context.createLinearGradient(0,0,0,256);
-  gradient.addColorStop(0,'#cbdff0');gradient.addColorStop(.24,'#e3edf6');
-  gradient.addColorStop(.48,'#f8fafc');gradient.addColorStop(.57,'#f8fafc');gradient.addColorStop(1,'#f2f5f8');
+  gradient.addColorStop(0,'#8fbce0');gradient.addColorStop(.24,'#bdd8ed');
+  gradient.addColorStop(.48,'#edf4fa');gradient.addColorStop(.57,'#f5f8fb');gradient.addColorStop(1,'#e6eff7');
   context.fillStyle=gradient;context.fillRect(0,0,512,256);
   const texture=new THREE.CanvasTexture(canvas);texture.mapping=THREE.EquirectangularReflectionMapping;texture.colorSpace=THREE.SRGBColorSpace;return texture;
 }
