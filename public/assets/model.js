@@ -71,6 +71,15 @@ function makeFloorGrid(meshes) {
   const overlay=new THREE.Mesh(geometry,material);overlay.name='ROOM26 metric floor grid';overlay.renderOrder=2;overlay.visible=false;
   return overlay;
 }
+function softSkyBackground(){
+  // A tiny procedural panorama: a stable world horizon, without downloads or clouds.
+  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=256;
+  const context=canvas.getContext('2d'),gradient=context.createLinearGradient(0,0,0,256);
+  gradient.addColorStop(0,'#cbdff0');gradient.addColorStop(.24,'#e3edf6');
+  gradient.addColorStop(.48,'#f8fafc');gradient.addColorStop(.57,'#f8fafc');gradient.addColorStop(1,'#f2f5f8');
+  context.fillStyle=gradient;context.fillRect(0,0,512,256);
+  const texture=new THREE.CanvasTexture(canvas);texture.mapping=THREE.EquirectangularReflectionMapping;texture.colorSpace=THREE.SRGBColorSpace;return texture;
+}
 export async function modelView(container, url, options = {}) {
   const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio((options.preview || options.editor) ? 1 : Math.min(devicePixelRatio, 2));
@@ -79,7 +88,7 @@ export async function modelView(container, url, options = {}) {
   const width = options.preview ? 1200 : Math.max(container.clientWidth, 1);
   const height = options.preview ? 630 : Math.max(container.clientHeight, 1);
   renderer.setSize(width, height); container.append(renderer.domElement);renderer.domElement.tabIndex=0;
-  const scene = new THREE.Scene(); scene.background = new THREE.Color('#dce2e8');
+  const scene = new THREE.Scene(),skyBackground=softSkyBackground();scene.background=skyBackground;
   const camera = new THREE.PerspectiveCamera(40, width / height, .01, 10000);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x788698, 3));
   for (const [x,y,z,power] of [[3,5,4,3],[-3,2,-2,2]]) { const light = new THREE.DirectionalLight(0xffffff,power);light.position.set(x,y,z);scene.add(light); }
@@ -101,7 +110,7 @@ export async function modelView(container, url, options = {}) {
   function dispose() {
     if(disposed)return;disposed=true;resolveReveal?.();cancelAnimationFrame(frame);frame=0;observer?.disconnect();section?.dispose();tour?.dispose();navigation?.dispose();ceilings?.dispose();controls.dispose();draco.dispose();ktx.dispose();edges?.dispose();
     scene.traverse(o => {o.geometry?.dispose();for(const m of (Array.isArray(o.material)?o.material:[o.material]))if(m){for(const v of Object.values(m))if(v?.isTexture&&v!==mirrors?.texture)v.dispose();m.dispose();}});
-    mixer?.stopAllAction();scene.clear();mirrors?.dispose();renderer.renderLists.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
+    mixer?.stopAllAction();skyBackground.dispose();scene.background=null;scene.clear();mirrors?.dispose();renderer.renderLists.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();
   }
   try {
     const gltf = await loader.loadAsync(url);
