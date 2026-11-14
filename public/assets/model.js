@@ -149,7 +149,7 @@ export async function modelView(container, url, options = {}) {
       ceilings?.update(camera);
       edges.update(camera,renderer.getSize(new THREE.Vector2()).y);
       if(floorGrid)floorGrid.material.uniforms.pixelRatio.value=renderer.getPixelRatio();
-      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;if(!firstFrameShown&&(revealFinished||revealStarted!==null)){firstFrameShown=true;options.onFirstFrame?.();}options.onStateChange?.();
+      tour?.beforeRender();renderer.render(scene,camera);renderedFrames++;if(!firstFrameShown){firstFrameShown=true;options.onFirstFrame?.();}options.onStateChange?.();
     }
     function setFloorGrid(visible){
       if(disposed)return false;

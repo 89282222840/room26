@@ -28,3 +28,5 @@
 
 .model-page .viewer-status.is-choice{padding:0;background:transparent;width:max-content;max-width:calc(100% - 24px)}
 .model-page .viewer-status.is-choice button{margin:0;white-space:nowrap}
+
+.model-page .viewer-status.is-loading{background:transparent;box-shadow:none}
